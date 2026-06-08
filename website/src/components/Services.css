@@ -1,0 +1,118 @@
+.services {
+  padding: 6rem 2rem;
+  background: var(--light-bg);
+}
+
+.services-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.services-header {
+  text-align: center;
+  margin-bottom: 3.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.services-subtitle {
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 300;
+  max-width: 520px;
+  line-height: 1.75;
+}
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.service-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 2rem;
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow 0.3s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.service-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.service-card--highlight {
+  background: linear-gradient(135deg, var(--crimson) 0%, var(--mauve) 100%);
+  color: var(--white);
+}
+
+.service-card--highlight .service-title {
+  color: var(--white);
+}
+
+.service-card--highlight .service-desc {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.service-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--light-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--crimson);
+  flex-shrink: 0;
+}
+
+.service-card--highlight .service-icon-box {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--white);
+}
+
+.service-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.service-title {
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.service-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 300;
+  line-height: 1.7;
+}
+
+.services-cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 3rem;
+}
+
+@media (max-width: 900px) {
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .services {
+    padding: 4rem 1.25rem;
+  }
+
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+}

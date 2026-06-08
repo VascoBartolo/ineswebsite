@@ -1,0 +1,143 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+  padding: 0 2rem;
+}
+
+.navbar.scrolled {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 20px rgba(185, 68, 72, 0.1);
+}
+
+.navbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-logo img {
+  height: 52px;
+  width: auto;
+  transition: transform 0.3s ease;
+}
+
+.navbar-logo:hover img {
+  transform: scale(1.04);
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.navbar-link {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-dark);
+  text-transform: uppercase;
+  position: relative;
+  padding-bottom: 2px;
+  transition: color 0.3s;
+}
+
+.navbar-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: var(--crimson);
+  transition: width 0.3s ease;
+}
+
+.navbar-link:hover {
+  color: var(--crimson);
+}
+
+.navbar-link:hover::after {
+  width: 100%;
+}
+
+.navbar-cta {
+  background: var(--crimson);
+  color: var(--white);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.6rem 1.4rem;
+  border-radius: 50px;
+  transition: background 0.3s, transform 0.2s, box-shadow 0.3s;
+}
+
+.navbar-cta:hover {
+  background: var(--mauve);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(185, 68, 72, 0.3);
+}
+
+.navbar-burger {
+  display: none;
+  color: var(--text-dark);
+  padding: 4px;
+}
+
+.navbar-mobile {
+  background: var(--white);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--blush);
+}
+
+.mobile-link {
+  padding: 1rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dark);
+  border-bottom: 1px solid rgba(241, 190, 191, 0.3);
+  transition: color 0.2s, background 0.2s;
+}
+
+.mobile-link:hover {
+  color: var(--crimson);
+  background: var(--light-bg);
+}
+
+.mobile-cta {
+  margin: 1rem 1.5rem;
+  text-align: center;
+  background: var(--crimson);
+  color: var(--white);
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .navbar-links {
+    display: none;
+  }
+
+  .navbar-burger {
+    display: flex;
+  }
+}

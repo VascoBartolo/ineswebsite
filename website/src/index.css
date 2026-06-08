@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap');
+
+:root {
+  --blush: #F1BEBF;
+  --mauve: #A75B5E;
+  --rose: #C37477;
+  --crimson: #B94448;
+  --white: #FFFFFF;
+  --off-white: #FDF7F7;
+  --light-bg: #FBF0F0;
+  --text-dark: #2C1A1A;
+  --text-muted: #7A5050;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Jost', system-ui, sans-serif;
+  --shadow-soft: 0 4px 24px rgba(185, 68, 72, 0.08);
+  --shadow-medium: 0 8px 40px rgba(185, 68, 72, 0.14);
+  --shadow-hover: 0 16px 60px rgba(185, 68, 72, 0.22);
+  --radius: 16px;
+  --radius-lg: 32px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--white);
+  color: var(--text-dark);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: var(--font-sans);
+}
+
+section {
+  scroll-margin-top: 80px;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
