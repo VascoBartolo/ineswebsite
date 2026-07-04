@@ -1,11 +1,22 @@
 import os
+import tempfile
 import pytest
-from sqlalchemy.pool import StaticPool
 from werkzeug.security import generate_password_hash
 
 TEST_PASSWORD = "test-pass-123"
 
-# Set env BEFORE importing app so module-level reads pick these up.
+# Bind the test DB to a temporary SQLite FILE before importing app. Flask-SQLAlchemy
+# builds the engine at db.init_app() (which runs at app import time) from whatever
+# config is present then — config changed afterwards is ignored. Setting DATABASE_URL
+# here (before import) makes app.py pick up SQLite at import; load_dotenv() does NOT
+# override already-set env vars, so the real .env Postgres DSN is not used. A file-based
+# SQLite DB (not ':memory:') is shared across connections, so tables created in the
+# fixture are visible to the test client's request connections.
+_db_fd, _db_path = tempfile.mkstemp(suffix=".sqlite")
+os.close(_db_fd)
+os.environ["DATABASE_URL"] = "sqlite:///" + _db_path.replace("\\", "/")
+
+# Set admin config env BEFORE importing app so its module-level reads pick these up.
 os.environ.setdefault("GOOGLE_CREDENTIALS_FILE", "/nonexistent-so-calendar-is-noop")
 os.environ["ADMIN_PASSWORD_HASH"] = generate_password_hash(TEST_PASSWORD)
 os.environ["ADMIN_TOKEN_SECRET"] = "unit-test-secret-key"
@@ -17,17 +28,7 @@ from models import db, Booking  # noqa: E402
 
 @pytest.fixture
 def app():
-    flask_app.config.update(
-        TESTING=True,
-        SQLALCHEMY_DATABASE_URI="sqlite://",
-        SQLALCHEMY_ENGINE_OPTIONS={
-            "connect_args": {"check_same_thread": False},
-            "poolclass": StaticPool,
-        },
-        ADMIN_PASSWORD_HASH=generate_password_hash(TEST_PASSWORD),
-        ADMIN_TOKEN_SECRET="unit-test-secret-key",
-        ADMIN_COOKIE_SECURE=False,
-    )
+    flask_app.config.update(TESTING=True)
     with flask_app.app_context():
         db.create_all()
         yield flask_app
