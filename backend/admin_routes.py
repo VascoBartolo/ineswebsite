@@ -5,6 +5,8 @@ from flask import Blueprint, request, jsonify
 import auth
 from models import db, Booking
 import stats as stats_mod
+import calendar_service
+import email_service
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -123,3 +125,45 @@ def locations_view():
             .distinct().all())
     locs = sorted({r[0] for r in rows if r[0]})
     return jsonify({"locations": locs})
+
+
+EDITABLE_FIELDS = {
+    "nome", "email", "contacto", "idade", "sujeito", "tipo_consulta",
+    "regime", "local_consulta", "duration_minutes", "price", "contexto", "status",
+}
+
+
+@admin_bp.route("/bookings/<reference>", methods=["PUT"])
+@auth.require_admin
+def edit_booking(reference):
+    from datetime import date as d, time as t
+    booking = Booking.query.filter_by(reference=reference.upper()).first()
+    if not booking:
+        return jsonify({"error": "not_found"}), 404
+
+    data = request.get_json(force=True) or {}
+    for field in EDITABLE_FIELDS:
+        if field in data and data[field] is not None:
+            setattr(booking, field, data[field])
+    if "slot_date" in data and data["slot_date"]:
+        booking.slot_date = d.fromisoformat(data["slot_date"])
+    if "slot_time" in data and data["slot_time"]:
+        hh, mm = str(data["slot_time"]).split(":")
+        booking.slot_time = t(int(hh), int(mm))
+    if booking.regime and booking.regime.lower() == "online":
+        booking.local_consulta = None
+
+    db.session.commit()
+
+    partial = []
+    try:
+        booking.google_event_id = calendar_service.update_event(booking.google_event_id, booking)
+        db.session.commit()
+    except Exception as e:
+        partial.append(f"calendar: {e}")
+    try:
+        email_service.send_booking_updated_client(booking)
+    except Exception as e:
+        partial.append(f"email: {e}")
+
+    return jsonify({"booking": _booking_admin_dict(booking), "partial_failures": partial})

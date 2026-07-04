@@ -101,6 +101,19 @@ def send_booking_confirmation(booking):
     _send(booking.email, f"Consulta Confirmada — {booking.reference}", html)
 
 
+def send_booking_updated_client(booking):
+    html = _base_style() + f"""
+    <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Atualizada</h2>
+    <p>Olá <strong>{booking.nome}</strong>,</p>
+    <p>Os detalhes da tua consulta foram atualizados. Confirma abaixo os novos dados.</p>
+    {_booking_detail_block(booking)}
+    <p>Se algo não estiver correto, responde a este email ou contacta-nos.</p>
+    <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
+    </div>
+    """
+    _send(booking.email, f"Consulta Atualizada — {booking.reference}", html)
+
+
 def send_nutritionist_new_booking(booking):
     regime_info = booking.regime
     if booking.local_consulta:
