@@ -1,0 +1,23 @@
+# Node
+website/node_modules/
+website/dist/
+
+# Python
+__pycache__/
+backend/*.pyc
+backend/.env
+
+# Google service account key & OAuth tokens — NEVER commit these
+backend/credentials.json
+backend/token.json
+backend/token.pickle
+
+# Docker volumes
+postgres_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Brainstorm companion (local only)
+.superpowers/

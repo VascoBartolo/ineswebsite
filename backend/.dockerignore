@@ -1,0 +1,21 @@
+# Secrets — injected at runtime (ACA secret) or mounted (docker-compose), never baked into the image
+.env
+credentials.json
+token.json
+token.pickle
+
+# Python cruft
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
+# VCS / docs / meta
+.git
+.gitignore
+*.md
+Dockerfile
+.dockerignore
