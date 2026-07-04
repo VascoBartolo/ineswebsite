@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 
 import auth
 from models import db, Booking
+import stats as stats_mod
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -80,3 +81,45 @@ def list_bookings():
         "faturado": round(sum(float(b.price) for b in confirmed), 2),
     }
     return jsonify({"bookings": bookings, "summary": summary})
+
+
+@admin_bp.route("/stats")
+@auth.require_admin
+def stats_view():
+    regime = request.args.get("regime", "all")
+    local = request.args.get("local_consulta", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    group_by = request.args.get("group_by", "week")
+    if group_by not in ("day", "week", "month"):
+        group_by = "week"
+
+    q = Booking.query
+    if regime in ("presencial", "online"):
+        q = q.filter(db.func.lower(Booking.regime) == regime)
+    if local:
+        q = q.filter(Booking.local_consulta == local)
+    if date_from:
+        q = q.filter(Booking.slot_date >= _date.fromisoformat(date_from))
+    if date_to:
+        q = q.filter(Booking.slot_date <= _date.fromisoformat(date_to))
+
+    rows = [{
+        "regime": b.regime, "price": b.price, "status": b.status,
+        "local_consulta": b.local_consulta, "slot_date": b.slot_date,
+    } for b in q.all()]
+
+    result = stats_mod.summarize(rows)
+    result["series"] = stats_mod.build_series(rows, group_by)
+    result["group_by"] = group_by
+    return jsonify(result)
+
+
+@admin_bp.route("/locations")
+@auth.require_admin
+def locations_view():
+    rows = (db.session.query(Booking.local_consulta)
+            .filter(Booking.local_consulta.isnot(None))
+            .distinct().all())
+    locs = sorted({r[0] for r in rows if r[0]})
+    return jsonify({"locations": locs})
