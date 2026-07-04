@@ -8,6 +8,7 @@ import Testimonials from './components/Testimonials';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
 import BookingPage from './pages/BookingPage';
+import AdminPage from './admin/AdminPage';
 
 function HomePage() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/marcar-consulta" element={<BookingPage />} />
+      <Route path="/admin" element={<AdminPage />} />
     </Routes>
   );
 }
