@@ -34,6 +34,9 @@ app.config["ADMIN_COOKIE_SECURE"] = os.environ.get("ADMIN_COOKIE_SECURE", "true"
 
 db.init_app(app)
 
+from admin_routes import admin_bp
+app.register_blueprint(admin_bp)
+
 # ---- Business logic ----
 
 
