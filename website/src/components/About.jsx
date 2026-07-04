@@ -16,7 +16,7 @@ const values = [
   {
     Icon: Sparkle,
     title: 'Abordagem Integrativa',
-    desc: 'Visão global da criança, respeitando o desenvolvimento nutricional em cada fase da infância.',
+    desc: 'Visão global da criança e da família, respeitando o desenvolvimento nutricional em cada fase da infância e da rotina familiar.',
   },
   {
     Icon: Smiley,
@@ -98,7 +98,7 @@ export default function About() {
             experiência positiva, de descoberta e afeto. Trabalho de forma personalizada
             com cada família, sempre com base em evidência científica, escuta ativa e
             muita empatia. Faço também consultas de nutrição online para famílias em
-            todo o Portugal e no estrangeiro.
+            todo o mundo.
           </motion.p>
 
           <motion.div

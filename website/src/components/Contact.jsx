@@ -18,14 +18,33 @@ export default function Contact() {
   const [ref, inView] = useInView();
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSent(true);
+    setSending(true);
+    setError('');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        setSent(true);
+      } else {
+        setError('Erro ao enviar a mensagem. Por favor tente novamente.');
+      }
+    } catch {
+      setError('Erro de ligação. Verifica a tua conexão e tenta novamente.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -47,7 +66,7 @@ export default function Contact() {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            Vamos começar a <em>tua jornada</em>
+            O primeiro passo <em>começa aqui</em>
           </motion.h2>
 
           <motion.p
@@ -56,8 +75,8 @@ export default function Contact() {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            Estou aqui para responder às suas dúvidas e agendar a sua consulta.
-            Entre em contacto por qualquer um dos canais abaixo.
+            Estou aqui para responder às tuas dúvidas e agendar a tua consulta.
+            Entra em contacto por qualquer um dos canais abaixo.
           </motion.p>
 
           <motion.div
@@ -77,21 +96,21 @@ export default function Contact() {
               <div className="detail-icon"><Phone size={18} /></div>
               <div>
                 <strong>Telefone / WhatsApp</strong>
-                <span>+351 9XX XXX XXX</span>
+                <span>+351 969 743 355</span>
               </div>
             </div>
             <div className="contact-detail">
               <div className="detail-icon"><Mail size={18} /></div>
               <div>
                 <strong>Email</strong>
-                <span>ines@ibnutricao.pt</span>
+                <span>inesbandarranutricao@gmail.com</span>
               </div>
             </div>
             <div className="contact-detail">
               <div className="detail-icon"><Clock size={18} /></div>
               <div>
                 <strong>Horário</strong>
-                <span>Segunda a Sexta, 9h – 18h</span>
+                <span>Segunda a Sexta, 16h – 19h</span>
               </div>
             </div>
             <div className="contact-detail">
@@ -118,7 +137,7 @@ export default function Contact() {
             </div>
           ) : (
             <form className="contact-form" onSubmit={handleSubmit}>
-              <h3 className="form-title">Marcar Consulta</h3>
+              <h3 className="form-title">Entra em contacto comigo</h3>
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="name">Nome</label>
@@ -126,7 +145,7 @@ export default function Contact() {
                     id="name"
                     name="name"
                     type="text"
-                    placeholder="O seu nome"
+                    placeholder="O teu nome"
                     value={form.name}
                     onChange={handleChange}
                     required
@@ -138,7 +157,7 @@ export default function Contact() {
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="O seu email"
+                    placeholder="O teu email"
                     value={form.email}
                     onChange={handleChange}
                     required
@@ -167,9 +186,10 @@ export default function Contact() {
                     required
                   >
                     <option value="">Selecionar...</option>
-                    <option>Introdução Alimentar</option>
+                    <option>Nutrição Pré-Conceção</option>
                     <option>Nutrição na Gravidez</option>
-                    <option>Aleitamento Materno</option>
+                    <option>Nutrição Pós-Parto</option>
+                    <option>Introdução Alimentar & BLW</option>
                     <option>Nutrição Pediátrica</option>
                     <option>Consulta Online</option>
                     <option>Outro</option>
@@ -182,14 +202,15 @@ export default function Contact() {
                   id="message"
                   name="message"
                   rows={4}
-                  placeholder="Conte-me um pouco sobre o que procura..."
+                  placeholder="Conta-me um pouco sobre o que procuras..."
                   value={form.message}
                   onChange={handleChange}
                   required
                 />
               </div>
-              <button type="submit" className="btn-primary form-submit">
-                Enviar Mensagem
+              {error && <p className="contact-form-error">{error}</p>}
+              <button type="submit" className="btn-primary form-submit" disabled={sending}>
+                {sending ? 'A enviar...' : 'Enviar Mensagem'}
               </button>
             </form>
           )}

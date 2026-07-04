@@ -142,6 +142,20 @@
   letter-spacing: 0.06em;
 }
 
+.form-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.contact-form-error {
+  font-size: 0.85rem;
+  color: #b94448;
+  background: rgba(185, 68, 72, 0.06);
+  border: 1px solid rgba(185, 68, 72, 0.2);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+}
+
 .form-success {
   text-align: center;
   padding: 3rem 2rem;

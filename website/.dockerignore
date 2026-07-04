@@ -1,0 +1,11 @@
+# Rebuilt inside the image — don't ship or upload these in the build context
+node_modules
+dist
+
+# VCS / meta
+.git
+.gitignore
+*.md
+Dockerfile
+.dockerignore
+.vercel

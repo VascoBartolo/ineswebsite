@@ -4,41 +4,37 @@ import './Testimonials.css';
 
 const testimonials = [
   {
-    name: 'Margarida F.',
-    role: 'Mãe de gémeos, 14 meses',
-    text: 'A Inês foi uma luz no meu caminho! A introdução alimentar com gémeos parecia um pesadelo, mas com o apoio dela tudo se tornou tão natural. Recomendo de coração.',
-    initials: 'MF',
+    name: 'Mãe do N.',
+    role: 'Bebé de 8 meses',
+    text: 'O N. é seguido desde os seus primeiros meses de vida pela querida Inês, posso vos dizer que foi a melhor decisão tomada. Desde a IA até agora surgem sempre dúvidas e "medos" e, quando isso acontece, lá está a minha querida Inês sempre pronta a ajudar e a dar aquela confiança que qualquer mãe, principalmente de primeira viagem, precisa!',
+    initials: 'N',
   },
   {
-    name: 'Beatriz S.',
-    role: 'Mãe do Tomás, 2 anos',
-    text: 'Consulta muito completa e personalizada. A Inês ouviu todas as minhas preocupações e deu-me ferramentas práticas para lidar com a seletividade alimentar do meu filho.',
-    initials: 'BS',
+    name: 'Mãe do J.',
+    role: 'Bebé de 12 meses',
+    text: 'O teu apoio é fundamental!',
+    initials: 'J',
   },
   {
-    name: 'Ana & Rui',
-    role: 'Pais da Leonor, 8 meses',
-    text: 'Começámos o BLW com muito medo e a Inês ajudou-nos a ganhar confiança. A nossa filha come de tudo e adora explorar novos sabores. Obrigada!',
-    initials: 'AR',
+    name: 'Mãe do V.',
+    role: 'Bebé de 9 meses',
+    text: 'Todos os bebés têm de ter uma Inês!',
+    initials: 'V',
   },
 ];
 
 const faqs = [
   {
     q: 'Quando devo começar a introdução alimentar / diversificação alimentar?',
-    a: 'A introdução alimentar complementar deve começar por volta dos 6 meses, quando o bebé mostra sinais de prontidão. Ofereço consultas pré-introdução para preparar a família, tanto para BLW (Baby Led Weaning) como para papas tradicionais.',
+    a: 'A introdução alimentar complementar deve começar por volta dos 6 meses, quando o bebé mostra os sinais de prontidão. Ofereço consultas pré-introdução para preparar a família, tanto para BLW (Baby Led Weaning) como para o método tradicional.',
   },
   {
     q: 'O que é o BLW (Baby Led Weaning)?',
-    a: 'BLW, ou Baby Led Weaning, é uma abordagem de introdução alimentar em que o bebé explora os alimentos sólidos de forma autónoma, ao seu próprio ritmo. É uma alternativa às papas que promove a autorregulação e uma relação positiva com a comida desde cedo.',
+    a: 'BLW, ou Baby Led Weaning, é uma abordagem de introdução alimentar em que o bebé explora os alimentos sólidos de forma autónoma, ao seu próprio ritmo. É uma alternativa aos purés que promove a autorregulação e uma relação positiva com a comida desde cedo. Contudo, o melhor método é aquele que se adapta à tua família!',
   },
   {
-    q: 'Faz consultas de nutrição online?',
-    a: 'Sim! Realizo consultas de nutrição materno-infantil e pediátrica por videochamada para famílias em todo o Portugal e no estrangeiro. Ideal para quem está fora dos Açores ou prefere a comodidade de casa.',
-  },
-  {
-    q: 'O que inclui uma consulta de nutrição pediátrica?',
-    a: 'Avaliação nutricional e antropométrica completa, plano alimentar personalizado para a criança, guias de orientação para os pais e acompanhamento por mensagem entre consultas.',
+    q: 'Como funciona a consulta e o acompanhamento?',
+    a: 'Cada consulta é adaptada às tuas necessidades e à fase em que te encontras. Em conjunto, definimos objetivos e estratégias nutricionais ajustadas à tua rotina, preferências e realidade. O acompanhamento é contínuo e personalizado, permitindo esclarecer dúvidas, ajustar o plano sempre que necessário e apoiar-te em cada etapa, de forma prática, simples e sempre baseada na evidência científica.',
   },
 ];
 

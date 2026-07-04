@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Navbar.css';
@@ -14,6 +15,8 @@ const navLinks = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 40);
@@ -23,9 +26,35 @@ export default function Navbar() {
 
   const handleLink = (e, href) => {
     e.preventDefault();
+    const menuWasOpen = open;
     setOpen(false);
-    const el = document.querySelector(href);
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+
+    const scrollTo = () => {
+      const el = document.querySelector(href);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    if (location.pathname !== '/') {
+      // Navigate home first, then scroll once the page has rendered
+      navigate('/');
+      setTimeout(scrollTo, 100);
+    } else if (menuWasOpen) {
+      // Wait for the mobile menu close animation (300ms) before scrolling
+      setTimeout(scrollTo, 300);
+    } else {
+      // Desktop nav: no menu animation, scroll immediately
+      scrollTo();
+    }
+  };
+
+  const handleLogoClick = (e) => {
+    e.preventDefault();
+    setOpen(false);
+    if (location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      navigate('/');
+    }
   };
 
   return (
@@ -36,7 +65,7 @@ export default function Navbar() {
       transition={{ duration: 0.6, ease: 'easeOut' }}
     >
       <div className="navbar-inner">
-        <a href="#inicio" className="navbar-logo" onClick={(e) => handleLink(e, '#inicio')}>
+        <a href="/" className="navbar-logo" onClick={handleLogoClick}>
           <img src="/images/vermelho.png" alt="IB Nutrição" />
         </a>
 
@@ -51,13 +80,9 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
-          <a
-            href="#contacto"
-            className="navbar-cta"
-            onClick={(e) => handleLink(e, '#contacto')}
-          >
+          <Link to="/marcar-consulta" className="navbar-cta">
             Marcar Consulta
-          </a>
+          </Link>
         </nav>
 
         <button className="navbar-burger" onClick={() => setOpen(!open)} aria-label="menu">
@@ -84,13 +109,13 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
-            <a
-              href="#contacto"
+            <Link
+              to="/marcar-consulta"
               className="mobile-cta"
-              onClick={(e) => handleLink(e, '#contacto')}
+              onClick={() => setOpen(false)}
             >
               Marcar Consulta
-            </a>
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

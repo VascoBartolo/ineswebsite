@@ -62,8 +62,8 @@ export default function Footer() {
         <div className="footer-contact-col">
           <span className="footer-nav-title">Contacto</span>
           <p>Ilha Terceira, Açores</p>
-          <p>ines@ibnutricao.pt</p>
-          <p>+351 9XX XXX XXX</p>
+          <p>inesbandarranutricao@gmail.com</p>
+          <p>+351 969 743 355</p>
         </div>
       </div>
 

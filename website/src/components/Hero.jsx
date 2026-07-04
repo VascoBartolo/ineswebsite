@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import './Hero.css';
 
 const fadeUp = {
@@ -11,11 +12,6 @@ const fadeUp = {
 };
 
 export default function Hero() {
-  const handleCta = (e) => {
-    e.preventDefault();
-    document.querySelector('#contacto')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   return (
     <section id="inicio" className="hero">
       <div className="hero-bg-blob blob-1" />
@@ -30,7 +26,7 @@ export default function Hero() {
             initial="hidden"
             animate="visible"
           >
-            Nutricionista Pediátrica & Materno-Infantil · Ilha Terceira, Açores
+            Nutricionista Materno-Infantil & Pediátrica · Ilha Terceira, Açores
           </motion.span>
 
           <motion.h1
@@ -51,9 +47,9 @@ export default function Hero() {
             initial="hidden"
             animate="visible"
           >
-            Consultas de nutrição pediátrica, introdução alimentar, BLW
-            (Baby Led Weaning), gravidez e amamentação — presencialmente nos
-            Açores ou online para todo o Portugal.
+            Consultas de pré-conceção, gravidez, pós-parto, introdução
+            alimentar, BLW (Baby Led Weaning), nutrição pediátrica —
+            presencialmente nos Açores ou online para todo o mundo.
           </motion.p>
 
           <motion.div
@@ -63,9 +59,9 @@ export default function Hero() {
             initial="hidden"
             animate="visible"
           >
-            <a href="#contacto" className="btn-primary" onClick={handleCta}>
+            <Link to="/marcar-consulta" className="btn-primary">
               Marcar Consulta
-            </a>
+            </Link>
             <a
               href="#sobre"
               className="btn-secondary"
@@ -86,12 +82,12 @@ export default function Hero() {
             animate="visible"
           >
             <div className="badge">
-              <span className="badge-num">500+</span>
+              <span className="badge-num">100+</span>
               <span className="badge-label">Famílias acompanhadas</span>
             </div>
             <div className="badge-divider" />
             <div className="badge">
-              <span className="badge-num">8+</span>
+              <span className="badge-num">2+</span>
               <span className="badge-label">Anos de experiência</span>
             </div>
             <div className="badge-divider" />
@@ -111,7 +107,7 @@ export default function Hero() {
           <div className="hero-image-frame">
             <img
               src="/images/ines-nutri-57.jpg.jpeg"
-              alt="Inês Bartolo — Nutricionista"
+              alt="Inês Bandarra — Nutricionista"
               className="hero-img"
             />
           </div>
