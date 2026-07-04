@@ -112,7 +112,7 @@ React SPA, same app. New routes in `App.jsx`:
 
 - `AdminPage.jsx` — route entry; holds auth state, renders `<AdminLogin/>` or `<AdminDashboard/>`.
 - `AdminLogin.jsx` — single password field → `POST /login`; on success re-checks session.
-- `AdminDashboard.jsx` — top bar (brand + "Terminar sessão"), tab switch (Marcações / Estatísticas).
+- `AdminDashboard.jsx` — top bar with the **brand icon** (`/images/vermelho.png`, same logo as the public navbar) alongside the "Painel de Administração" wordmark, plus "Terminar sessão"; tab switch (Marcações / Estatísticas). The brand icon also appears on the login screen.
 - `BookingsTab.jsx` — filter bar + table + row actions; `EditBookingModal.jsx` for edits; confirm dialogs for cancel/delete.
 - `StatsTab.jsx` — filter bar (date range, regime, local, group-by) + KPI cards + chart + breakdowns.
 - `MiniBarChart.jsx` — dependency-free SVG/CSS bar chart with the **Nº consultas / Lucro líquido** metric toggle.
@@ -121,6 +121,7 @@ React SPA, same app. New routes in `App.jsx`:
 ### Visual design (approved mockups)
 
 - **Palette matches the public site** (cream background with blush corner gradients, white cards, `#B94448` accents, Georgia serif headings, Jost body).
+- **Brand icon** (`/images/vermelho.png`) shown at the top of both the login screen and the dashboard header.
 - **Bookings tab:** filter bar (search, Estado, Regime, Local, De/Até) over a table: Ref · Data/Hora (+duration) · Cliente (nome/email/telefone) · Consulta (tipo + sujeito/idade) · Regime/Local · Preço · Estado pill · Ações (✎ edit, ⊘ cancel, 🗑 delete). Cancelled rows greyed with delete-only. Footer summary (counts + faturado).
 - **Stats tab:** filters + 4 KPI cards (Marcações · Faturado · **Lucro líquido** highlighted · Canceladas) + a time-series bar chart with the count/profit toggle and day/week/month grouping + Presencial-vs-Online split (net with gross underneath) + per-location net breakdown.
 
@@ -145,6 +146,7 @@ React SPA, same app. New routes in `App.jsx`:
 - **New ACA secrets** on `ib-backend`: `admin-password-hash`, `admin-token-secret`; env `ADMIN_COOKIE_SECURE=true`.
 - Roll new revisions for both apps (same process already documented in `deploy/README.md`).
 - nginx already proxies `/api/` → backend; admin routes are under `/api/`, so no nginx change. Confirm `Set-Cookie` passes through the proxy (default behavior; verify in testing).
+- **Rides along (unrelated quick change):** `email_service._base_style()` now renders the brand logo (`{SITE_URL}/images/vermelho.png`, alt "IB Nutrição") at the top of every notification email. Already implemented; ships with this backend rebuild. No separate deploy needed.
 
 ---
 
