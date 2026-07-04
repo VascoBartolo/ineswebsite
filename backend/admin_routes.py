@@ -167,3 +167,35 @@ def edit_booking(reference):
         partial.append(f"email: {e}")
 
     return jsonify({"booking": _booking_admin_dict(booking), "partial_failures": partial})
+
+
+@admin_bp.route("/bookings/<reference>/cancel", methods=["POST"])
+@auth.require_admin
+def cancel_booking_admin(reference):
+    from datetime import datetime
+    booking = Booking.query.filter_by(reference=reference.upper()).first()
+    if not booking:
+        return jsonify({"error": "not_found"}), 404
+    if booking.status == "cancelado":
+        return jsonify({"error": "already_cancelled"}), 400
+    booking.status = "cancelado"
+    booking.updated_at = datetime.utcnow()
+    db.session.commit()
+    if booking.google_event_id:
+        calendar_service.delete_event(booking.google_event_id)
+    email_service.send_booking_cancelled_client(booking)
+    email_service.send_nutritionist_cancellation(booking)
+    return jsonify({"booking": _booking_admin_dict(booking)})
+
+
+@admin_bp.route("/bookings/<reference>", methods=["DELETE"])
+@auth.require_admin
+def delete_booking_admin(reference):
+    booking = Booking.query.filter_by(reference=reference.upper()).first()
+    if not booking:
+        return jsonify({"error": "not_found"}), 404
+    if booking.google_event_id:
+        calendar_service.delete_event(booking.google_event_id)
+    db.session.delete(booking)
+    db.session.commit()
+    return jsonify({"ok": True})
