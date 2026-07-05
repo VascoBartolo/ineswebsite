@@ -87,19 +87,6 @@ export default function Contact() {
             Entra em contacto por qualquer um dos canais abaixo.
           </motion.p>
 
-          <motion.a
-            className="whatsapp-btn"
-            href="https://wa.me/351969743355"
-            target="_blank"
-            rel="noopener noreferrer"
-            initial={{ opacity: 0, y: 24 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.25 }}
-          >
-            <WhatsAppIcon size={20} />
-            Falar no WhatsApp
-          </motion.a>
-
           <motion.div
             className="contact-details"
             initial={{ opacity: 0, y: 24 }}
@@ -230,9 +217,20 @@ export default function Contact() {
                 />
               </div>
               {error && <p className="contact-form-error">{error}</p>}
-              <button type="submit" className="btn-primary form-submit" disabled={sending}>
-                {sending ? 'A enviar...' : 'Enviar Mensagem'}
-              </button>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary form-submit" disabled={sending}>
+                  {sending ? 'A enviar...' : 'Enviar Mensagem'}
+                </button>
+                <a
+                  className="whatsapp-btn"
+                  href="https://wa.me/351969743355"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <WhatsAppIcon size={20} />
+                  Falar no WhatsApp
+                </a>
+              </div>
             </form>
           )}
         </motion.div>
