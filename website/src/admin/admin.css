@@ -79,18 +79,21 @@
 /* ---------- Filters ---------- */
 .filters { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 .filters .grow { grid-column: span 2; }
-.fld { display: flex; flex-direction: column; gap: 5px; }
+.fld { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .fld label { font-size: .63rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .fld input, .fld select {
   padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
   font-size: .85rem; background: #fff; color: var(--dark); font-family: inherit;
+  width: 100%; min-width: 0; max-width: 100%;
 }
+/* Date inputs have a wide intrinsic size; keep them inside their grid cell. */
+.fld input[type="date"] { -webkit-appearance: none; appearance: none; }
 .fld input:focus, .fld select:focus { outline: none; border-color: var(--red); }
 
 /* Segmented control (group-by) */
 .seg { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: #fff; }
 .seg button {
-  flex: 1; border: none; background: none; padding: 9px 0; font-size: .78rem;
+  flex: 1; border: none; background: none; padding: 9px 9px; font-size: .78rem;
   cursor: pointer; color: var(--muted); font-family: inherit;
 }
 .seg button.on { background: var(--red); color: #fff; font-weight: 600; }
