@@ -69,10 +69,13 @@
   box-shadow: 0 4px 18px rgba(185, 68, 72, .06); max-width: 1080px;
 }
 .admin-tabs button {
-  padding: 10px 24px; border: none; background: none; border-radius: 9px;
+  position: relative; padding: 10px 24px; border: none; background: none; border-radius: 9px;
   font-family: inherit; font-size: .9rem; cursor: pointer; color: var(--muted);
+  transition: color .2s ease;
 }
-.admin-tabs button.on { background: var(--red); color: #fff; font-weight: 600; }
+.admin-tabs button.on { color: #fff; font-weight: 600; }
+.tab-pill { position: absolute; inset: 0; background: var(--red); border-radius: 9px; z-index: 0; }
+.tab-label { position: relative; z-index: 1; }
 
 .tab { max-width: 1080px; margin: 0 auto; }
 

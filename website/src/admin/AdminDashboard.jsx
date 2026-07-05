@@ -1,7 +1,13 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { adminApi } from './adminApi';
 import BookingsTab from './BookingsTab';
 import StatsTab from './StatsTab';
+
+const TABS = [
+  { id: 'bookings', label: 'Marcações' },
+  { id: 'stats', label: 'Estatísticas' },
+];
 
 export default function AdminDashboard({ onLogout }) {
   const [tab, setTab] = useState('bookings');
@@ -24,11 +30,35 @@ export default function AdminDashboard({ onLogout }) {
       </header>
 
       <nav className="admin-tabs">
-        <button className={tab === 'bookings' ? 'on' : ''} onClick={() => setTab('bookings')}>Marcações</button>
-        <button className={tab === 'stats' ? 'on' : ''} onClick={() => setTab('stats')}>Estatísticas</button>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={tab === t.id ? 'on' : ''}
+            onClick={() => setTab(t.id)}
+          >
+            {tab === t.id && (
+              <motion.span
+                layoutId="admin-tab-pill"
+                className="tab-pill"
+                transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              />
+            )}
+            <span className="tab-label">{t.label}</span>
+          </button>
+        ))}
       </nav>
 
-      {tab === 'bookings' ? <BookingsTab /> : <StatsTab />}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {tab === 'bookings' ? <BookingsTab /> : <StatsTab />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
