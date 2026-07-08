@@ -4,28 +4,18 @@ import './Gallery.css';
 
 const images = [
   {
-    src: '/images/adorable-baby-playing-with-food.jpg.jpeg',
-    alt: 'Bebé na hora da refeição',
-    span: 'tall',
-  },
-  {
-    src: '/images/high-angle-cute-baby-highchair-choosing-what-fruit-eat.jpg.jpeg',
-    alt: 'Bebé escolhendo frutas',
+    src: '/images/baby3.jpg',
+    alt: 'Momento de introdução alimentar',
     span: 'normal',
   },
   {
-    src: '/images/side-view-cute-baby-highchair-choosing-what-fruit-eat.jpg.jpeg',
-    alt: 'Bebé provando frutos',
+    src: '/images/baby2.jpg',
+    alt: 'Bebé a explorar novos alimentos',
     span: 'normal',
   },
   {
-    src: '/images/baby-weaning-tips.jpg.jpeg',
-    alt: 'Diversificação alimentar',
-    span: 'wide',
-  },
-  {
-    src: '/images/ines-nutri-190.jpg.jpeg',
-    alt: 'Consulta de nutrição pediátrica',
+    src: '/images/baby1.jpg',
+    alt: 'Refeição de bebé',
     span: 'normal',
   },
 ];

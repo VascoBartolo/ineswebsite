@@ -1,27 +1,43 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from '../hooks/useInView';
 import './Testimonials.css';
 
 const testimonials = [
   {
-    name: 'Mãe do N.',
-    role: 'Bebé de 8 meses',
-    text: 'O N. é seguido desde os seus primeiros meses de vida pela querida Inês, posso vos dizer que foi a melhor decisão tomada. Desde a IA até agora surgem sempre dúvidas e "medos" e, quando isso acontece, lá está a minha querida Inês sempre pronta a ajudar e a dar aquela confiança que qualquer mãe, principalmente de primeira viagem, precisa!',
-    initials: 'N',
+    name: 'Micaela Sampaio',
+    role: 'Mãe · bebé com 1 ano',
+    text: 'O Noah é seguido desde os seus primeiros meses de vida pela querida Inês, posso vos dizer que foi a melhor decisão tomada, desde a IA até agora surgem sempre dúvidas e "medos" e quando isso acontece lá está a minha querida Inês sempre pronta ajudar e dar aquela confiança que qualquer uma mãe, principalmente de primeira viagem precisa!',
+    image: '/images/cliente-micaela.jpg',
+    initials: 'MS',
   },
   {
-    name: 'Mãe do J.',
-    role: 'Bebé de 12 meses',
-    text: 'O teu apoio é fundamental!',
-    initials: 'J',
+    name: 'Rita Lopes',
+    role: 'Grávida · 20 semanas',
+    text: 'A Inês é uma nutricionista atenciosa e muito dedicada e tem sido uma ajuda fundamental na minha gravidez aos 44 anos! Não é pessoa de extremos e sabe adequar o acompanhamento às necessidades nutricionais mediante as nossas preferências alimentares. Sou muito grata pela atenção que tem tido comigo.',
+    image: '/images/cliente-rita.jpg',
+    initials: 'RL',
   },
   {
-    name: 'Mãe do V.',
-    role: 'Bebé de 9 meses',
-    text: 'Todos os bebés têm de ter uma Inês!',
-    initials: 'V',
+    name: 'Inês Casulo',
+    role: 'Mãe · bebé com 11 meses',
+    text: 'Quando a nossa bebé nasceu, o nosso mundo mudou por completo. A informação era tanta no campo da puericultura, que nos sentimos um pouco perdidos no que tocava à Introdução Alimentar. Até que conhecemos a Drª Inês, que foi uma grande ajuda nesse processo. Desde a primeira consulta presencial até ao acompanhamento on-line, sentimos sempre que foi a nossa melhor escolha. Seguimos todas as sugestões e dicas de como introduzir os alimentos, e mesmo a medo, fomos desconstruindo mitos sobre a alimentação de bebés. Hoje a caminho de um ano de idade, não há um alimento que a nossa filha rejeite ou não queira experimentar. Somos muito gratos por sermos seguidos pela Drª Inês na nutrição da nossa filha e recomendamos!',
+    image: '/images/cliente-ines.jpg',
+    initials: 'IC',
   },
 ];
+
+function TestimonialAvatar({ name, image, initials }) {
+  const [failed, setFailed] = useState(false);
+  if (image && !failed) {
+    return (
+      <div className="testimonial-avatar">
+        <img src={image} alt={name} loading="lazy" onError={() => setFailed(true)} />
+      </div>
+    );
+  }
+  return <div className="testimonial-avatar">{initials}</div>;
+}
 
 const faqs = [
   {
@@ -74,7 +90,7 @@ export default function Testimonials() {
             >
               <p className="testimonial-text">"{t.text}"</p>
               <div className="testimonial-author">
-                <div className="testimonial-avatar">{t.initials}</div>
+                <TestimonialAvatar name={t.name} image={t.image} initials={t.initials} />
                 <div>
                   <strong>{t.name}</strong>
                   <span>{t.role}</span>
