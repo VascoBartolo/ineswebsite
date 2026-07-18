@@ -17,9 +17,9 @@ def _b(regime, price, status="confirmado", local=None, d=date(2026, 7, 1)):
 
 def test_summarize_counts_and_money():
     rows = [
-        _b("presencial", 100, local="Clínica NIITE"),
+        _b("presencial", 100, local="Clínica Manus"),
         _b("online", 50),
-        _b("presencial", 100, status="cancelado", local="Clínica NIITE"),
+        _b("presencial", 100, status="cancelado", local="Clínica Manus"),
     ]
     s = stats.summarize(rows)
     assert s["count"] == 2
@@ -28,7 +28,7 @@ def test_summarize_counts_and_money():
     assert s["lucro_liquido"] == 120.0  # 70 + 50
     assert s["by_regime"]["presencial"]["lucro"] == 70.0
     assert s["by_regime"]["online"]["lucro"] == 50.0
-    assert s["by_location"][0]["local_consulta"] == "Clínica NIITE"
+    assert s["by_location"][0]["local_consulta"] == "Clínica Manus"
     assert s["by_location"][0]["lucro"] == 70.0
 
 

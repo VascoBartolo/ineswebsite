@@ -40,7 +40,6 @@ def _normalize_clinic(name):
 _CLINIC_KEYWORDS = [
     ('manus',            ['manus']),
     ('psicologia_bessa', ['psicologia', 'flávia', 'flavia', 'bessa']),
-    ('niite',            ['niite']),
 ]
 
 

@@ -23,7 +23,6 @@ const CONSULTATION_TYPES = {
 const CLINICS = [
   'Clínica Manus (Angra do Heroísmo)',
   'Centro de Psicologia Flávia Bessa (Angra do Heroísmo)',
-  'Clínica NIITE (Praia da Vitória)',
 ];
 
 function getPrice(isFirst, regime) {

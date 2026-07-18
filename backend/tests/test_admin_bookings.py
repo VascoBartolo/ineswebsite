@@ -10,7 +10,7 @@ def test_lists_all_bookings(client, app):
     with app.app_context():
         make_booking(reference="IB-A", email="a@x.pt")
         make_booking(reference="IB-B", email="b@x.pt", regime="presencial",
-                     local_consulta="Clínica NIITE")
+                     local_consulta="Clínica Manus")
     _auth(client)
     r = client.get("/api/admin/bookings")
     assert r.status_code == 200

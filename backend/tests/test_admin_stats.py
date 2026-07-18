@@ -9,7 +9,7 @@ def _auth(client):
 def test_stats_totals(client, app):
     with app.app_context():
         make_booking(reference="IB-A", regime="presencial", price=100,
-                     local_consulta="Clínica NIITE", slot_date=date(2026, 7, 1))
+                     local_consulta="Clínica Manus", slot_date=date(2026, 7, 1))
         make_booking(reference="IB-B", regime="online", price=50, slot_date=date(2026, 7, 2))
         make_booking(reference="IB-C", regime="online", price=50,
                      status="cancelado", slot_date=date(2026, 7, 3))
@@ -34,8 +34,8 @@ def test_stats_regime_filter(client, app):
 
 def test_locations_endpoint(client, app):
     with app.app_context():
-        make_booking(reference="IB-A", regime="presencial", local_consulta="Clínica NIITE")
+        make_booking(reference="IB-A", regime="presencial", local_consulta="Clínica Manus")
         make_booking(reference="IB-B", regime="presencial", local_consulta="Angra")
     _auth(client)
     locs = client.get("/api/admin/locations").get_json()["locations"]
-    assert set(locs) == {"Clínica NIITE", "Angra"}
+    assert set(locs) == {"Clínica Manus", "Angra"}
