@@ -456,12 +456,18 @@
 
 .cal-cell {
   text-align: center;
-  padding: 0.45rem 0.2rem;
+  padding: 0.35rem 0.2rem;
   border-radius: 6px;
   font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.15s;
   color: var(--text-dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 42px;
 }
 
 .cal-cell.cal-empty { cursor: default; }
@@ -485,6 +491,29 @@
   background: var(--crimson);
   color: white;
   font-weight: 600;
+}
+
+/* Free-slot count shown under each available day */
+.cal-slots {
+  font-size: 0.56rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--blush);
+  color: var(--crimson);
+}
+
+.cal-cell.cal-selected .cal-slots {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.cal-legend {
+  margin-top: 0.7rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* ===== Date/Time Layout ===== */

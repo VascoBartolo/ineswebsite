@@ -1,6 +1,7 @@
 import os
 import secrets
 import string
+from calendar import monthrange
 from datetime import datetime, date, timedelta
 from datetime import time as dt_time
 
@@ -63,22 +64,29 @@ def generate_reference() -> str:
     return f"IB-{token}"
 
 
-def db_busy_intervals(query_date):
-    """Returns DB bookings as event dicts compatible with calendar_service."""
+def db_busy_intervals_range(start_date, end_date):
+    """Confirmed DB bookings in [start_date, end_date] bucketed by date, as event
+    dicts compatible with calendar_service. One query for the whole range."""
     bookings = Booking.query.filter(
-        Booking.slot_date == query_date,
+        Booking.slot_date >= start_date,
+        Booking.slot_date <= end_date,
         Booking.status == "confirmado",
     ).all()
-    result = []
+    buckets = {}
     for b in bookings:
-        start = datetime.combine(query_date, b.slot_time)
+        start = datetime.combine(b.slot_date, b.slot_time)
         end = start + timedelta(minutes=int(b.duration_minutes))
-        result.append({
+        buckets.setdefault(b.slot_date, []).append({
             "start_dt": start,
             "end_dt": end,
             "location": (b.regime.lower(), b.local_consulta),
         })
-    return result
+    return buckets
+
+
+def db_busy_intervals(query_date):
+    """Returns DB bookings as event dicts compatible with calendar_service."""
+    return db_busy_intervals_range(query_date, query_date).get(query_date, [])
 
 
 # ---- Routes ----
@@ -110,6 +118,48 @@ def availability():
     all_events = db_busy_intervals(query_date) + calendar_service.get_gcal_events(query_date)
     slots = calendar_service.get_available_slots(query_date, duration, all_events, new_location)
     return jsonify({"slots": slots, "date": date_str})
+
+
+@app.route("/api/availability/month")
+def availability_month():
+    """
+    Number of free slots for every day of a month, so the booking calendar can
+    show availability at a glance. Deliberately batched: ONE Google Calendar
+    fetch and ONE DB query for the whole month, not one per day.
+    """
+    try:
+        year = int(request.args.get("year", ""))
+        month = int(request.args.get("month", ""))
+    except ValueError:
+        return jsonify({"error": "year and month required"}), 400
+    if not 1 <= month <= 12:
+        return jsonify({"error": "invalid month"}), 400
+
+    duration = int(request.args.get("duration", 60))
+    regime = request.args.get("regime", "").strip().lower() or None
+    local_consulta = request.args.get("local_consulta", "").strip() or None
+    new_location = (regime, local_consulta) if regime else None
+
+    first = date(year, month, 1)
+    last = date(year, month, monthrange(year, month)[1])
+
+    gcal_by_day = calendar_service.get_gcal_events_range(first, last)
+    db_by_day = db_busy_intervals_range(first, last)
+
+    today = date.today()
+    days = {}
+    current = first
+    while current <= last:
+        if current < today:
+            days[current.isoformat()] = 0
+        else:
+            events = db_by_day.get(current, []) + gcal_by_day.get(current, [])
+            days[current.isoformat()] = len(
+                calendar_service.get_available_slots(current, duration, events, new_location)
+            )
+        current += timedelta(days=1)
+
+    return jsonify({"year": year, "month": month, "days": days})
 
 
 @app.route("/api/bookings", methods=["POST"])

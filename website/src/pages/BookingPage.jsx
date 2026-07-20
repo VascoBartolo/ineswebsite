@@ -52,12 +52,45 @@ function fmtDate(dateStr) {
 
 // ---- Calendar Component ----
 
-function CalendarPicker({ selectedDate, onSelect }) {
+// Local calendar date as YYYY-MM-DD. Deliberately not toISOString(), which
+// converts to UTC and can shift the date by a day in non-UTC timezones.
+const toISO = d =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function CalendarPicker({ selectedDate, onSelect, duration, regime, localConsulta }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [monthSlots, setMonthSlots] = useState(null); // null until loaded
+  const [loadingMonth, setLoadingMonth] = useState(false);
+
+  // One batched request per month/criteria — the backend does a single calendar
+  // fetch + single DB query, so the whole month costs one round trip.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingMonth(true);
+      try {
+        const params = new URLSearchParams({
+          year: String(viewYear),
+          month: String(viewMonth + 1),
+          duration: String(duration || 60),
+        });
+        if (regime) params.set('regime', regime);
+        if (localConsulta) params.set('local_consulta', localConsulta);
+        const res = await fetch(`/api/availability/month?${params}`);
+        const data = await res.json();
+        if (!cancelled) setMonthSlots(data.days || {});
+      } catch {
+        if (!cancelled) setMonthSlots({});
+      } finally {
+        if (!cancelled) setLoadingMonth(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [viewYear, viewMonth, duration, regime, localConsulta]);
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
@@ -76,10 +109,11 @@ function CalendarPicker({ selectedDate, onSelect }) {
   for (let i = 0; i < startOffset; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewYear, viewMonth, d));
 
-  const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
   const isPast = d => d < today;
-  const isSel = d => selectedDate && d.toISOString().split('T')[0] === selectedDate;
+  const isSel = d => selectedDate && toISO(d) === selectedDate;
   const isTdy = d => d.getTime() === today.getTime();
+  // null while loading; otherwise the real free-slot count for that day.
+  const slotsFor = d => (monthSlots ? monthSlots[toISO(d)] ?? 0 : null);
 
   const canGoPrev = () => {
     const cur = new Date(viewYear, viewMonth, 1);
@@ -97,23 +131,30 @@ function CalendarPicker({ selectedDate, onSelect }) {
       <div className="cal-grid">
         {DAY_NAMES_SHORT.map(d => <div key={d} className="cal-day-header">{d}</div>)}
         {cells.map((d, i) => {
-          const disabled = !d || isWeekend(d) || isPast(d);
+          const count = d ? slotsFor(d) : null;
+          const available = !!d && !isPast(d) && count > 0;
           return (
             <div
               key={i}
               className={[
                 'cal-cell',
                 !d ? 'cal-empty' : '',
-                disabled ? 'cal-disabled' : 'cal-available',
+                available ? 'cal-available' : 'cal-disabled',
                 d && isSel(d) ? 'cal-selected' : '',
                 d && isTdy(d) && !isSel(d) ? 'cal-today' : '',
               ].join(' ').trim()}
-              onClick={() => !disabled && d && onSelect(d.toISOString().split('T')[0])}
+              onClick={() => available && onSelect(toISO(d))}
             >
               {d ? d.getDate() : ''}
+              {available && <span className="cal-slots">{count}</span>}
             </div>
           );
         })}
+      </div>
+      <div className="cal-legend">
+        {loadingMonth
+          ? 'A carregar disponibilidade…'
+          : 'O número em cada dia indica as vagas disponíveis.'}
       </div>
     </div>
   );
@@ -611,6 +652,9 @@ export default function BookingPage() {
                           <CalendarPicker
                             selectedDate={form.slotDate}
                             onSelect={d => setField('slotDate', d)}
+                            duration={duration}
+                            regime={form.regime}
+                            localConsulta={form.localConsulta}
                           />
                         </div>
 

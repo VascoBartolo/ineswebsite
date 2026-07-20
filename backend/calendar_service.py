@@ -7,8 +7,17 @@ TIMEZONE = "Atlantic/Azores"
 CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
 CREDENTIALS_FILE = os.environ.get("GOOGLE_CREDENTIALS_FILE", "/app/credentials.json")
 
-WORK_START = time(16, 0)
-WORK_END = time(19, 0)
+# Working windows per weekday (Mon=0 … Sun=6). A day may have several windows;
+# Saturday runs mornings plus a short afternoon block.
+WORK_WINDOWS = {
+    0: [(time(16, 0), time(19, 0))],
+    1: [(time(16, 0), time(19, 0))],
+    2: [(time(16, 0), time(19, 0))],
+    3: [(time(16, 0), time(19, 0))],
+    4: [(time(16, 0), time(19, 0))],
+    5: [(time(9, 0), time(12, 0)), (time(13, 0), time(14, 30))],
+    6: [],
+}
 SLOT_INTERVAL_MINUTES = 30
 TRAVEL_BUFFER = timedelta(minutes=30)
 
@@ -100,36 +109,40 @@ def needs_buffer(loc1, loc2):
     return _resolve_clinic(clinic1) != _resolve_clinic(clinic2)
 
 
-def get_gcal_events(query_date):
+def get_gcal_events_range(start_date, end_date):
     """
-    Returns Google Calendar events for the given date as a list of dicts:
-      {start_dt: datetime, end_dt: datetime, location: tuple|None}
+    Fetches Google Calendar events for [start_date, end_date] inclusive in a SINGLE
+    API call and buckets them by date. The month availability view relies on this so
+    it doesn't issue one request per day.
+
+    Returns {date: [{start_dt, end_dt, location}, ...]}.
     """
     service = _get_service()
     if not service:
-        return []
+        return {}
 
     tz = pytz.timezone(TIMEZONE)
-    day_start = tz.localize(datetime.combine(query_date, time(0, 0)))
-    day_end = tz.localize(datetime.combine(query_date, time(23, 59, 59)))
+    range_start = tz.localize(datetime.combine(start_date, time(0, 0)))
+    range_end = tz.localize(datetime.combine(end_date, time(23, 59, 59)))
 
     try:
         result = (
             service.events()
             .list(
                 calendarId=CALENDAR_ID,
-                timeMin=day_start.isoformat(),
-                timeMax=day_end.isoformat(),
+                timeMin=range_start.isoformat(),
+                timeMax=range_end.isoformat(),
                 singleEvents=True,
                 orderBy="startTime",
+                maxResults=2500,
             )
             .execute()
         )
     except Exception as e:
         print(f"[Calendar] API error: {e}")
-        return []
+        return {}
 
-    events = []
+    buckets = {}
     for event in result.get("items", []):
         start_str = event["start"].get("dateTime")
         end_str = event["end"].get("dateTime")
@@ -138,15 +151,23 @@ def get_gcal_events(query_date):
         try:
             start_dt = datetime.fromisoformat(start_str).astimezone(tz).replace(tzinfo=None)
             end_dt = datetime.fromisoformat(end_str).astimezone(tz).replace(tzinfo=None)
-            events.append({
-                "start_dt": start_dt,
-                "end_dt": end_dt,
-                "location": parse_location_from_event(event),
-            })
         except Exception:
             continue
+        buckets.setdefault(start_dt.date(), []).append({
+            "start_dt": start_dt,
+            "end_dt": end_dt,
+            "location": parse_location_from_event(event),
+        })
 
-    return events
+    return buckets
+
+
+def get_gcal_events(query_date):
+    """
+    Returns Google Calendar events for the given date as a list of dicts:
+      {start_dt: datetime, end_dt: datetime, location: tuple|None}
+    """
+    return get_gcal_events_range(query_date, query_date).get(query_date, [])
 
 
 def get_available_slots(query_date, duration_minutes, all_events, new_location=None):
@@ -156,17 +177,17 @@ def get_available_slots(query_date, duration_minutes, all_events, new_location=N
     all_events: list of {start_dt, end_dt, location} dicts (DB + GCal combined)
     new_location: (regime, clinic) tuple for the booking being checked, or None
     """
-    if query_date.weekday() >= 5:
+    windows = WORK_WINDOWS.get(query_date.weekday(), [])
+    if not windows:
         return []
 
-    window_start = datetime.combine(query_date, WORK_START)
-    window_end = datetime.combine(query_date, WORK_END)
-
     candidates = []
-    current = window_start
-    while current + timedelta(minutes=duration_minutes) <= window_end:
-        candidates.append(current)
-        current += timedelta(minutes=SLOT_INTERVAL_MINUTES)
+    for win_start, win_end in windows:
+        window_end = datetime.combine(query_date, win_end)
+        current = datetime.combine(query_date, win_start)
+        while current + timedelta(minutes=duration_minutes) <= window_end:
+            candidates.append(current)
+            current += timedelta(minutes=SLOT_INTERVAL_MINUTES)
 
     available = []
     for slot_start in candidates:
