@@ -94,6 +94,7 @@ def send_booking_confirmation(booking):
        <a href="{SITE_URL}/marcar-consulta" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        e use a referência <strong>{booking.reference}</strong> com este email.</p>
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
+    <p> Se houver alguma questão, não hesite em responder a este email: inesbandarranutricao@gmail.com ou contactar-nos.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Materno-Infantil &amp; Nutricionista Pediátrica</span></p>
     </div>
