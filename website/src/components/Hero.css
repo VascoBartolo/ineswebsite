@@ -115,6 +115,9 @@
   font-size: 0.9rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.3s, transform 0.2s, box-shadow 0.3s;
 }
 
