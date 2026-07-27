@@ -101,7 +101,7 @@ def send_booking_confirmation(booking):
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
     <p> Se houver alguma questão, não hesite em responder a este email: inesbandarranutricao@gmail.com ou contactar-nos.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
-       <span style="color:#7A5050;font-size:0.85rem;">Materno-Infantil &amp; Nutricionista Pediátrica</span></p>
+       <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
     </div>
     """
     _send(booking.email, f"Consulta Confirmada — {booking.reference}", html)
