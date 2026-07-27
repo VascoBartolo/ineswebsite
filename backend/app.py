@@ -7,6 +7,8 @@ from datetime import time as dt_time
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 
 from models import db, Booking
@@ -24,6 +26,13 @@ allowed_origins = [
 ]
 CORS(app, origins=[o for o in allowed_origins if o])
 
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per minute"],
+    storage_uri="memory://",
+)
+
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URL",
     "postgresql://ibnutricao:ibnutricao@localhost:5432/ibnutricao",
@@ -37,6 +46,8 @@ db.init_app(app)
 
 from admin_routes import admin_bp
 app.register_blueprint(admin_bp)
+
+limiter.limit("5 per minute")(app.view_functions["admin.login"])
 
 # ---- Business logic ----
 
@@ -163,6 +174,7 @@ def availability_month():
 
 
 @app.route("/api/bookings", methods=["POST"])
+@limiter.limit("10 per minute")
 def create_booking():
     data = request.get_json(force=True) or {}
 
@@ -231,6 +243,7 @@ def create_booking():
 
 
 @app.route("/api/contact", methods=["POST"])
+@limiter.limit("5 per minute")
 def contact():
     data = request.get_json(force=True) or {}
     name = (data.get("name") or "").strip()
