@@ -3,6 +3,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+from markupsafe import escape
+
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
 SMTP_USER = os.environ.get("SMTP_USER", "")
@@ -58,15 +60,15 @@ def _base_style():
 
 
 def _booking_detail_block(booking):
-    regime_info = booking.regime
+    regime_info = escape(booking.regime)
     if booking.local_consulta:
-        regime_info = f"{booking.regime} — {booking.local_consulta}"
+        regime_info = f"{escape(booking.regime)} — {escape(booking.local_consulta)}"
     dur = "1h30m" if booking.duration_minutes == 90 else "1h"
     return f"""
     <div style="background:white;border-radius:8px;padding:20px;margin:16px 0;border-left:4px solid #B94448;">
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;width:120px;">Referência</td>
-            <td style="padding:5px 0;font-weight:600;font-size:1.1rem;color:#B94448;">{booking.reference}</td></tr>
+            <td style="padding:5px 0;font-weight:600;font-size:1.1rem;color:#B94448;">{escape(booking.reference)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Data</td>
             <td style="padding:5px 0;">{_fmt_date(booking.slot_date)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Hora</td>
@@ -74,7 +76,7 @@ def _booking_detail_block(booking):
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Duração</td>
             <td style="padding:5px 0;">{dur}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Consulta</td>
-            <td style="padding:5px 0;">{booking.tipo_consulta}</td></tr>
+            <td style="padding:5px 0;">{escape(booking.tipo_consulta)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Regime</td>
             <td style="padding:5px 0;">{regime_info}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Preço</td>
@@ -87,12 +89,12 @@ def _booking_detail_block(booking):
 def send_booking_confirmation(booking):
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Confirmada</h2>
-    <p>Olá <strong>{booking.nome}</strong>,</p>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
     <p>A sua consulta foi marcada com sucesso. Guarde os detalhes abaixo.</p>
     {_booking_detail_block(booking)}
     <p>Para verificar, alterar ou cancelar a sua consulta, aceda a
        <a href="{SITE_URL}/marcar-consulta" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
-       e use a referência <strong>{booking.reference}</strong> com este email.</p>
+       e use a referência <strong>{escape(booking.reference)}</strong> com este email.</p>
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
     <p> Se houver alguma questão, não hesite em responder a este email: inesbandarranutricao@gmail.com ou contactar-nos.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
@@ -105,7 +107,7 @@ def send_booking_confirmation(booking):
 def send_booking_updated_client(booking):
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Atualizada</h2>
-    <p>Olá <strong>{booking.nome}</strong>,</p>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
     <p>Os detalhes da tua consulta foram atualizados. Confirma abaixo os novos dados.</p>
     {_booking_detail_block(booking)}
     <p>Se algo não estiver correto, responde a este email ou contacta-nos.</p>
@@ -116,23 +118,20 @@ def send_booking_updated_client(booking):
 
 
 def send_nutritionist_new_booking(booking):
-    regime_info = booking.regime
-    if booking.local_consulta:
-        regime_info = f"{booking.regime} — {booking.local_consulta}"
-    ctx = f"<tr><td style='padding:5px 0;color:#7A5050;font-size:0.85rem;'>Contexto</td><td style='padding:5px 0;'>{booking.contexto}</td></tr>" if booking.contexto else ""
+    ctx = f"<tr><td style='padding:5px 0;color:#7A5050;font-size:0.85rem;'>Contexto</td><td style='padding:5px 0;'>{escape(booking.contexto)}</td></tr>" if booking.contexto else ""
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#B94448;">Nova Marcação Recebida</h2>
     {_booking_detail_block(booking)}
     <div style="background:white;border-radius:8px;padding:20px;margin:16px 0;">
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;width:120px;">Nome</td>
-            <td style="padding:5px 0;font-weight:600;">{booking.nome}</td></tr>
+            <td style="padding:5px 0;font-weight:600;">{escape(booking.nome)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Idade</td>
             <td style="padding:5px 0;">{booking.idade} anos</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Email</td>
-            <td style="padding:5px 0;">{booking.email}</td></tr>
+            <td style="padding:5px 0;">{escape(booking.email)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Contacto</td>
-            <td style="padding:5px 0;">{booking.contacto}</td></tr>
+            <td style="padding:5px 0;">{escape(booking.contacto)}</td></tr>
         {ctx}
       </table>
     </div>
@@ -144,8 +143,8 @@ def send_nutritionist_new_booking(booking):
 def send_booking_cancelled_client(booking):
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Cancelada</h2>
-    <p>Olá <strong>{booking.nome}</strong>,</p>
-    <p>A sua consulta <strong style="color:#B94448;">{booking.reference}</strong> foi cancelada com sucesso.</p>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
+    <p>A sua consulta <strong style="color:#B94448;">{escape(booking.reference)}</strong> foi cancelada com sucesso.</p>
     <p>Para marcar uma nova consulta, visite
        <a href="{SITE_URL}/marcar-consulta" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
@@ -159,32 +158,32 @@ def send_nutritionist_cancellation(booking):
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#B94448;">Cancelamento de Consulta</h2>
     <p>A seguinte consulta foi cancelada pelo cliente:</p>
     {_booking_detail_block(booking)}
-    <p><strong>Nome:</strong> {booking.nome} &nbsp;|&nbsp; <strong>Email:</strong> {booking.email} &nbsp;|&nbsp; <strong>Contacto:</strong> {booking.contacto}</p>
+    <p><strong>Nome:</strong> {escape(booking.nome)} &nbsp;|&nbsp; <strong>Email:</strong> {escape(booking.email)} &nbsp;|&nbsp; <strong>Contacto:</strong> {escape(booking.contacto)}</p>
     </div>
     """
     _send(NUTRITIONIST_EMAIL, f"Cancelamento — {booking.reference} — {booking.nome}", html, reply_to=booking.email)
 
 
 def send_contact_message(name, email, phone, subject, message):
-    phone_row = f"<tr><td style='padding:5px 0;color:#7A5050;font-size:0.85rem;width:100px;'>Telefone</td><td style='padding:5px 0;'>{phone}</td></tr>" if phone else ""
+    phone_row = f"<tr><td style='padding:5px 0;color:#7A5050;font-size:0.85rem;width:100px;'>Telefone</td><td style='padding:5px 0;'>{escape(phone)}</td></tr>" if phone else ""
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#B94448;">Nova Mensagem de Contacto</h2>
     <div style="background:white;border-radius:8px;padding:20px;margin:16px 0;border-left:4px solid #B94448;">
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;width:100px;">Nome</td>
-            <td style="padding:5px 0;font-weight:600;">{name}</td></tr>
+            <td style="padding:5px 0;font-weight:600;">{escape(name)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Email</td>
-            <td style="padding:5px 0;">{email}</td></tr>
+            <td style="padding:5px 0;">{escape(email)}</td></tr>
         {phone_row}
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Assunto</td>
-            <td style="padding:5px 0;">{subject}</td></tr>
+            <td style="padding:5px 0;">{escape(subject)}</td></tr>
       </table>
     </div>
     <div style="background:white;border-radius:8px;padding:20px;margin:16px 0;">
       <p style="color:#7A5050;font-size:0.85rem;margin-bottom:8px;">Mensagem:</p>
-      <p style="white-space:pre-wrap;line-height:1.6;">{message}</p>
+      <p style="white-space:pre-wrap;line-height:1.6;">{escape(message)}</p>
     </div>
-    <p style="color:#7A5050;font-size:0.85rem;">Para responder, escreva diretamente para <a href="mailto:{email}" style="color:#B94448;">{email}</a>.</p>
+    <p style="color:#7A5050;font-size:0.85rem;">Para responder, escreva diretamente para <a href="mailto:{escape(email)}" style="color:#B94448;">{escape(email)}</a>.</p>
     </div>
     """
     _send(NUTRITIONIST_EMAIL, f"Contacto — {name} — {subject}", html, reply_to=email)
@@ -193,13 +192,13 @@ def send_contact_message(name, email, phone, subject, message):
 def send_nutritionist_edit_request(booking, edit_message):
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#B94448;">Pedido de Alteração</h2>
-    <p>O cliente com a referência <strong>{booking.reference}</strong> solicitou uma alteração à sua consulta.</p>
+    <p>O cliente com a referência <strong>{escape(booking.reference)}</strong> solicitou uma alteração à sua consulta.</p>
     {_booking_detail_block(booking)}
     <div style="background:white;border-radius:8px;padding:20px;margin:16px 0;border-left:4px solid #F1BEBF;">
       <p style="color:#7A5050;font-size:0.85rem;margin-bottom:8px;">Mensagem do cliente:</p>
-      <p style="font-style:italic;">{edit_message}</p>
+      <p style="font-style:italic;">{escape(edit_message)}</p>
     </div>
-    <p><strong>Contacto:</strong> {booking.email} / {booking.contacto}</p>
+    <p><strong>Contacto:</strong> {escape(booking.email)} / {escape(booking.contacto)}</p>
     <p>Por favor entre em contacto com o cliente para confirmar a alteração.</p>
     </div>
     """
