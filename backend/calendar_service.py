@@ -181,12 +181,17 @@ def get_available_slots(query_date, duration_minutes, all_events, new_location=N
     if not windows:
         return []
 
+    tz = pytz.timezone(TIMEZONE)
+    now_local = datetime.now(tz).replace(tzinfo=None)
+    min_start = now_local + timedelta(hours=24)
+
     candidates = []
     for win_start, win_end in windows:
         window_end = datetime.combine(query_date, win_end)
         current = datetime.combine(query_date, win_start)
         while current + timedelta(minutes=duration_minutes) <= window_end:
-            candidates.append(current)
+            if current >= min_start:
+                candidates.append(current)
             current += timedelta(minutes=SLOT_INTERVAL_MINUTES)
 
     available = []

@@ -644,7 +644,8 @@ export default function BookingPage() {
                   {step === 3 && (
                     <>
                       <h2 className="form-step-title">Data & Hora</h2>
-                      <p className="form-step-sub">Disponibilidade: segunda a sexta-feira, das 16h00 às 19h00</p>
+                      <p className="form-step-sub">Seg–Sex 16h00–19h00 · Sáb 09h00–12h00 e 13h00–14h30</p>
+                      <div className="tz-badge">🕐 Horário dos Açores (GMT-1)</div>
 
                       <div className="date-time-layout">
                         <div className="form-section">
