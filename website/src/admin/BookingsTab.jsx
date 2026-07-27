@@ -13,6 +13,8 @@ function fmtDur(m) { return m === 90 ? '1h30' : '1h'; }
 export default function BookingsTab() {
   const [filters, setFilters] = useState({ q: '', status: 'all', regime: 'all', local_consulta: '', date_from: '', date_to: '' });
   const [data, setData] = useState({ bookings: [], summary: {} });
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, pages: 1, per_page: 30 });
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,13 +22,22 @@ export default function BookingsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'all'));
-    try { setData(await adminApi.bookings(params)); } finally { setLoading(false); }
-  }, [filters]);
+    params.page = page;
+    params.per_page = 30;
+    try {
+      const result = await adminApi.bookings(params);
+      setData(result);
+      setPagination(result.pagination || { total: 0, pages: 1, per_page: 30 });
+    } finally { setLoading(false); }
+  }, [filters, page]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { adminApi.locations().then((r) => setLocations(r.locations)).catch(() => {}); }, []);
 
-  const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k) => (e) => {
+    setFilters((f) => ({ ...f, [k]: e.target.value }));
+    setPage(1);
+  };
 
   const cancel = async (ref) => {
     if (!confirm(`Cancelar a marcação ${ref}? O cliente será notificado.`)) return;
@@ -89,6 +100,14 @@ export default function BookingsTab() {
         <span>{data.summary.count || 0} marcações · {data.summary.confirmed_count || 0} confirmadas</span>
         <span>Faturado no período: <strong>{Number(data.summary.faturado || 0).toFixed(0)}€</strong></span>
       </div>
+
+      {pagination.pages > 1 && (
+        <div className="pagination">
+          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Anterior</button>
+          <span>Página {page} de {pagination.pages}</span>
+          <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)}>Seguinte →</button>
+        </div>
+      )}
 
       {editing && <EditBookingModal booking={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </div>

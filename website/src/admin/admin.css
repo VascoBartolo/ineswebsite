@@ -135,6 +135,14 @@
 .adm-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: .82rem; color: var(--muted); }
 .adm-foot strong { color: var(--dark); }
 
+.pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem 0; font-size: .85rem; color: var(--muted); }
+.pagination button {
+  padding: 8px 18px; border: 1px solid var(--line); border-radius: 9px;
+  background: #fff; color: var(--dark); font-family: inherit; font-size: .82rem; cursor: pointer;
+}
+.pagination button:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+.pagination button:disabled { opacity: .4; cursor: default; }
+
 /* ---------- KPIs ---------- */
 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
 .kpi {
