@@ -1,7 +1,10 @@
+import logging
 import os
 import re
 import pytz
 from datetime import datetime, date, time, timedelta
+
+logger = logging.getLogger("ibnutricao.calendar")
 
 TIMEZONE = "Atlantic/Azores"
 CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
@@ -34,7 +37,7 @@ def _get_service():
         )
         return build("calendar", "v3", credentials=creds)
     except Exception as e:
-        print(f"[Calendar] Failed to build service: {e}")
+        logger.error("Failed to build service: %s", e)
         return None
 
 
@@ -139,7 +142,7 @@ def get_gcal_events_range(start_date, end_date):
             .execute()
         )
     except Exception as e:
-        print(f"[Calendar] API error: {e}")
+        logger.error("API error: %s", e)
         return {}
 
     buckets = {}
@@ -254,7 +257,7 @@ def create_event(booking):
         result = service.events().insert(calendarId=CALENDAR_ID, body=_event_body(booking)).execute()
         return result.get("id")
     except Exception as e:
-        print(f"[Calendar] Create event error: {e}")
+        logger.error("Create event error: %s", e)
         return None
 
 
@@ -265,7 +268,7 @@ def delete_event(event_id):
     try:
         service.events().delete(calendarId=CALENDAR_ID, eventId=event_id).execute()
     except Exception as e:
-        print(f"[Calendar] Delete event error: {e}")
+        logger.error("Delete event error: %s", e)
 
 
 def update_event(event_id, booking):
@@ -282,5 +285,5 @@ def update_event(event_id, booking):
         ).execute()
         return result.get("id")
     except Exception as e:
-        print(f"[Calendar] Update event error: {e}; recreating.")
+        logger.error("Update event error: %s; recreating.", e)
         return create_event(booking)

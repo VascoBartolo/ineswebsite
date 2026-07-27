@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 import string
@@ -10,6 +11,13 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("ibnutricao")
 
 from models import db, Booking
 import calendar_service
@@ -48,6 +56,35 @@ from admin_routes import admin_bp
 app.register_blueprint(admin_bp)
 
 limiter.limit("5 per minute")(app.view_functions["admin.login"])
+
+
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify({"error": "bad_request"}), 400
+
+@app.errorhandler(404)
+def not_found_error(e):
+    return jsonify({"error": "not_found"}), 404
+
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return jsonify({"error": "method_not_allowed"}), 405
+
+@app.errorhandler(429)
+def rate_limited(e):
+    return jsonify({"error": "rate_limited", "message": "Demasiados pedidos. Tente novamente mais tarde."}), 429
+
+@app.errorhandler(500)
+def internal_error(e):
+    logger.exception("Unhandled exception")
+    return jsonify({"error": "internal_error"}), 500
+
+
+@app.after_request
+def log_request(response):
+    logger.info("%s %s %s %s", request.method, request.path, response.status_code, request.remote_addr)
+    return response
+
 
 # ---- Business logic ----
 
@@ -334,4 +371,5 @@ def edit_request(reference):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true",
+            host="0.0.0.0", port=5000)

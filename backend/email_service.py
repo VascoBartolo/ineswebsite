@@ -3,7 +3,10 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+import logging
 from markupsafe import escape
+
+logger = logging.getLogger("ibnutricao.email")
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
@@ -30,7 +33,7 @@ def _fmt_date(d):
 
 def _send(to, subject, html, reply_to=None):
     if not SMTP_USER or not SMTP_PASS:
-        print(f"[Email] (no SMTP configured) Would send to {to}: {subject}")
+        logger.info("(no SMTP configured) Would send to %s: %s", to, subject)
         return
     msg = MIMEMultipart("alternative")
     msg["From"] = f"{MAIL_FROM_NAME} <{MAIL_FROM}>"
@@ -46,7 +49,7 @@ def _send(to, subject, html, reply_to=None):
             server.login(SMTP_USER, SMTP_PASS)
             server.sendmail(MAIL_FROM, to, msg.as_string())
     except Exception as e:
-        print(f"[Email] Send error: {e}")
+        logger.error("Send error: %s", e)
 
 
 def _base_style():
