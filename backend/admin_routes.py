@@ -67,22 +67,46 @@ def list_bookings():
     if date_to:
         q = q.filter(Booking.slot_date <= _date.fromisoformat(date_to))
     if search:
-        like = f"%{search}%"
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{escaped}%"
         q = q.filter(db.or_(
             db.func.lower(Booking.nome).like(like),
             db.func.lower(Booking.email).like(like),
             db.func.lower(Booking.reference).like(like),
         ))
 
-    rows = q.order_by(Booking.slot_date.desc(), Booking.slot_time.desc()).all()
+    q = q.order_by(Booking.slot_date.desc(), Booking.slot_time.desc())
+
+    page = max(1, int(request.args.get("page", 1)))
+    per_page = min(100, max(1, int(request.args.get("per_page", 30))))
+    total = q.count()
+    rows = q.offset((page - 1) * per_page).limit(per_page).all()
+
+    agg = q.with_entities(
+        db.func.count().label("cnt"),
+        db.func.count(db.case((Booking.status == "confirmado", 1))).label("confirmed"),
+        db.func.coalesce(
+            db.func.sum(db.case((Booking.status == "confirmado", Booking.price), else_=0)),
+            0,
+        ).label("faturado"),
+    ).first()
+
     bookings = [_booking_admin_dict(b) for b in rows]
-    confirmed = [b for b in rows if b.status == "confirmado"]
-    summary = {
-        "count": len(rows),
-        "confirmed_count": len(confirmed),
-        "faturado": round(sum(float(b.price) for b in confirmed), 2),
-    }
-    return jsonify({"bookings": bookings, "summary": summary})
+    pages = max(1, (total + per_page - 1) // per_page)
+    return jsonify({
+        "bookings": bookings,
+        "summary": {
+            "count": agg.cnt,
+            "confirmed_count": agg.confirmed,
+            "faturado": round(float(agg.faturado), 2),
+        },
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "pages": pages,
+        },
+    })
 
 
 @admin_bp.route("/stats")
