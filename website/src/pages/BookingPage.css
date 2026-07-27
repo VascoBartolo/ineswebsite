@@ -795,7 +795,11 @@
   display: flex;
   gap: 1rem;
   justify-content: center;
-  flex-wrap: wrap;
+  align-items: center;
+}
+.success-actions .btn-primary,
+.success-actions .btn-secondary {
+  width: auto;
 }
 
 /* ===== Lookup ===== */
@@ -1024,7 +1028,7 @@
 
   .choice-card { min-width: 0; padding: 1.1rem 0.75rem; }
   .success-screen { padding: 2rem 1.25rem; }
-  .success-actions { flex-direction: column; }
+  .success-actions { flex-direction: column; align-items: stretch; }
   .form-nav { flex-direction: column-reverse; }
   .form-nav .btn-secondary { margin-right: 0; }
   .form-nav .btn-primary,
