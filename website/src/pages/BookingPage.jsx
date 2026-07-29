@@ -50,6 +50,18 @@ function fmtDate(dateStr) {
   return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} de ${MONTH_NAMES[d.getMonth()].toLowerCase()} de ${d.getFullYear()}`;
 }
 
+// Status shown to the client combines the booking status (which holds the slot) with
+// the nutritionist's decision (nutri_status). A cancellation always wins.
+function bookingStatusInfo(b) {
+  if (!b) return { label: '', cls: '' };
+  if (b.status === 'cancelado') return { label: 'Cancelado', cls: 'cancelado' };
+  switch (b.nutri_status) {
+    case 'confirmada': return { label: 'Confirmado', cls: 'confirmado' };
+    case 'revisao':    return { label: 'Necessita Alteração', cls: 'revisao' };
+    default:           return { label: 'Pendente', cls: 'pendente' };
+  }
+}
+
 // ---- Calendar Component ----
 
 // Local calendar date as YYYY-MM-DD. Deliberately not toISOString(), which
@@ -242,6 +254,21 @@ export default function BookingPage() {
   const [editMessage, setEditMessage] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editSent, setEditSent] = useState(false);
+
+  // Deep-link from emails: /marcar-consulta?tab=verificar&ref=IB-XXXX lands the client
+  // on the lookup tab with the reference pre-filled. The email is intentionally NOT
+  // carried in the URL (privacy: it would leak into history/logs/referrers) — the
+  // client still enters it, which keeps a light verification step.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (params.get('tab') === 'verificar' || ref) {
+      setActiveTab('verificar');
+    }
+    if (ref) {
+      setLookupRef(ref.toUpperCase());
+    }
+  }, []);
 
   const isFirst = form.primeiraConsulta === 'primeira';
   const price = getPrice(isFirst, form.regime);
@@ -836,8 +863,8 @@ export default function BookingPage() {
                   >
                     <div className="lr-header">
                       <span className="lr-ref">{lookupResult.reference}</span>
-                      <span className={`lr-status ${lookupResult.status}`}>
-                        {lookupResult.status === 'confirmado' ? 'Confirmado' : 'Cancelado'}
+                      <span className={`lr-status ${bookingStatusInfo(lookupResult).cls}`}>
+                        {bookingStatusInfo(lookupResult).label}
                       </span>
                     </div>
 
@@ -850,6 +877,13 @@ export default function BookingPage() {
                       <div className="lr-row"><span>Duração</span><strong>{fmtDuration(lookupResult.duration_minutes)}</strong></div>
                       <div className="lr-row"><span>Preço</span><strong>{lookupResult.price}€</strong></div>
                     </div>
+
+                    {lookupResult.status !== 'cancelado' && lookupResult.nutri_status === 'revisao' && (
+                      <div className="lr-note">
+                        A disponibilidade da nutricionista alterou-se e esta marcação necessita de revisão.
+                        A nutricionista entrará em contacto para combinar uma nova data.
+                      </div>
+                    )}
 
                     {lookupResult.status === 'confirmado' && !cancelConfirm && !editMode && !editSent && (
                       <div className="lr-actions">
