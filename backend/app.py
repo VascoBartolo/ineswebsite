@@ -55,7 +55,14 @@ db.init_app(app)
 from admin_routes import admin_bp
 app.register_blueprint(admin_bp)
 
+from booking_action_routes import booking_action_bp
+app.register_blueprint(booking_action_bp)
+
 limiter.limit("5 per minute")(app.view_functions["admin.login"])
+# Booking-action links are clicked by the nutritionist from email; keep them usable
+# but bounded against abuse of the (signed) endpoints.
+limiter.limit("30 per minute")(app.view_functions["booking_action.action_page"])
+limiter.limit("30 per minute")(app.view_functions["booking_action.action_execute"])
 
 
 @app.errorhandler(400)
@@ -272,8 +279,10 @@ def create_booking():
         booking.google_event_id = event_id
         db.session.commit()
 
-    # Email notifications
-    email_service.send_booking_confirmation(booking)
+    # Email notifications. The client is told the slot is reserved and awaiting the
+    # nutritionist's confirmation ("Consulta Marcada"); she confirms/revises from the
+    # action buttons in her own notification email.
+    email_service.send_booking_received_client(booking)
     email_service.send_nutritionist_new_booking(booking)
 
     return jsonify({"booking": booking.to_dict()}), 201

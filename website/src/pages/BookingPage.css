@@ -867,6 +867,19 @@
 
 .lr-status.confirmado { background: rgba(72, 160, 100, 0.12); color: #2d7a4f; }
 .lr-status.cancelado { background: rgba(185, 68, 72, 0.1); color: var(--crimson); }
+.lr-status.pendente { background: rgba(201, 162, 39, 0.14); color: #9a7d13; }
+.lr-status.revisao { background: rgba(214, 122, 42, 0.14); color: #b5651d; }
+
+.lr-note {
+  background: rgba(214, 122, 42, 0.08);
+  border: 1px solid rgba(214, 122, 42, 0.25);
+  color: #8a4d16;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
 
 .lr-grid {
   display: flex;

@@ -6,6 +6,8 @@ from email.mime.multipart import MIMEMultipart
 import logging
 from markupsafe import escape
 
+import auth
+
 logger = logging.getLogger("ibnutricao.email")
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
@@ -89,15 +91,37 @@ def _booking_detail_block(booking):
     """
 
 
-def send_booking_confirmation(booking):
+def send_booking_received_client(booking):
+    """Sent right after the client books: the slot is reserved but still awaiting
+    the nutritionist's confirmation."""
+    html = _base_style() + f"""
+    <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Marcada</h2>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
+    <p>Recebemos o seu pedido de consulta e o horário ficou reservado. Aguarda apenas a
+       confirmação da nutricionista — receberá um novo email assim que for confirmada.</p>
+    {_booking_detail_block(booking)}
+    <p>Para verificar, alterar ou cancelar a sua consulta, aceda a
+       <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
+       — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
+    <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
+    <p> Se houver alguma questão, não hesite em responder a este email: inesbandarranutricao@gmail.com ou contactar-nos.</p>
+    <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
+       <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
+    </div>
+    """
+    _send(booking.email, f"Consulta Marcada — {booking.reference}", html)
+
+
+def send_booking_confirmed_client(booking):
+    """Sent when the nutritionist confirms the request from her notification email."""
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Confirmada</h2>
     <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
-    <p>A sua consulta foi marcada com sucesso. Guarde os detalhes abaixo.</p>
+    <p>Boas notícias! A nutricionista <strong>confirmou</strong> a sua consulta. Guarde os detalhes abaixo.</p>
     {_booking_detail_block(booking)}
     <p>Para verificar, alterar ou cancelar a sua consulta, aceda a
-       <a href="{SITE_URL}/marcar-consulta" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
-       e use a referência <strong>{escape(booking.reference)}</strong> com este email.</p>
+       <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
+       — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
     <p> Se houver alguma questão, não hesite em responder a este email: inesbandarranutricao@gmail.com ou contactar-nos.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
@@ -107,17 +131,76 @@ def send_booking_confirmation(booking):
     _send(booking.email, f"Consulta Confirmada — {booking.reference}", html)
 
 
+def send_booking_review_client(booking):
+    """Sent when the nutritionist flags that her availability changed and the
+    requested slot needs to be revised. She will follow up with the client."""
+    html = _base_style() + f"""
+    <h2 style="font-family:Georgia,serif;font-weight:400;color:#B94448;">Consulta Necessita Revisão</h2>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
+    <p>Surgiu um imprevisto e a disponibilidade da nutricionista alterou-se, pelo que
+       não será possível realizar a consulta no horário pedido. Não se preocupe — a
+       nutricionista irá entrar em contacto consigo para encontrar uma nova data.</p>
+    {_booking_detail_block(booking)}
+    <p>Se preferir, pode desde já escolher um novo horário em
+       <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
+       ou responder diretamente a este email.</p>
+    <p>Pedimos desculpa pelo incómodo e agradecemos a compreensão.</p>
+    <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
+       <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
+    </div>
+    """
+    _send(booking.email, f"Consulta Necessita Revisão — {booking.reference}", html)
+
+
 def send_booking_updated_client(booking):
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Atualizada</h2>
     <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
     <p>Os detalhes da tua consulta foram atualizados. Confirma abaixo os novos dados.</p>
     {_booking_detail_block(booking)}
+    <p>Para rever, alterar ou cancelar a tua consulta, acede a
+       <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
+       — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email desta marcação.</p>
     <p>Se algo não estiver correto, responde a este email ou contacta-nos.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
     </div>
     """
     _send(booking.email, f"Consulta Atualizada — {booking.reference}", html)
+
+
+def _action_url(booking, action):
+    token = auth.sign_booking_action(booking.reference, action)
+    return f"{SITE_URL}/api/bookings/action?token={token}"
+
+
+def _nutritionist_action_block(booking):
+    """Two signed action buttons (Confirmar / Solicitar Alteração). Each link opens a
+    confirmation page that performs the action via POST, so email-client link
+    prefetching cannot trigger it accidentally."""
+    confirm_url = _action_url(booking, "confirm")
+    revise_url = _action_url(booking, "revise")
+    return f"""
+    <div style="background:white;border-radius:8px;padding:20px;margin:16px 0;text-align:center;">
+      <p style="color:#7A5050;font-size:0.9rem;margin:0 0 16px;">Responder a este pedido:</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+        <tr>
+          <td style="padding:0 8px;">
+            <a href="{confirm_url}"
+               style="display:inline-block;background:#5A8A5A;color:white;text-decoration:none;
+                      font-weight:600;padding:12px 28px;border-radius:8px;font-size:0.95rem;">Confirmar</a>
+          </td>
+          <td style="padding:0 8px;">
+            <a href="{revise_url}"
+               style="display:inline-block;background:#B94448;color:white;text-decoration:none;
+                      font-weight:600;padding:12px 28px;border-radius:8px;font-size:0.95rem;">Solicitar Alteração</a>
+          </td>
+        </tr>
+      </table>
+      <p style="color:#7A5050;font-size:0.78rem;margin:16px 0 0;">
+        Ao confirmar, o cliente recebe um email de confirmação. Ao solicitar alteração,
+        o cliente é informado de que irá entrar em contacto para remarcar.</p>
+    </div>
+    """
 
 
 def send_nutritionist_new_booking(booking):
@@ -138,6 +221,7 @@ def send_nutritionist_new_booking(booking):
         {ctx}
       </table>
     </div>
+    {_nutritionist_action_block(booking)}
     </div>
     """
     _send(NUTRITIONIST_EMAIL, f"Nova Marcação — {booking.reference} — {booking.nome}", html, reply_to=booking.email)

@@ -10,6 +10,15 @@ COOKIE_PATH = "/api/admin"
 TOKEN_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 _SALT = "ib-admin-session"
 
+# Booking-action links in the nutritionist's email are clicked without a login
+# session, so each link carries a signed, time-limited token that binds the booking
+# reference to a single action. The signature (over ADMIN_TOKEN_SECRET) is the
+# authorization: unguessable, tamper-evident and expiring. A distinct salt keeps
+# these tokens from ever being accepted as admin-session cookies.
+_BOOKING_ACTION_SALT = "ib-booking-action"
+BOOKING_ACTION_MAX_AGE = 60 * 60 * 24 * 45  # 45 days
+BOOKING_ACTIONS = ("confirm", "revise")
+
 # Small fixed delay on failed logins to blunt brute-force.
 LOGIN_FAIL_DELAY = 0.4
 
@@ -17,6 +26,34 @@ LOGIN_FAIL_DELAY = 0.4
 def _serializer():
     secret = current_app.config.get("ADMIN_TOKEN_SECRET") or ""
     return URLSafeTimedSerializer(secret, salt=_SALT)
+
+
+def _booking_action_serializer():
+    secret = current_app.config.get("ADMIN_TOKEN_SECRET") or ""
+    return URLSafeTimedSerializer(secret, salt=_BOOKING_ACTION_SALT)
+
+
+def sign_booking_action(reference, action):
+    """Signed token authorizing `action` on the booking `reference`."""
+    if action not in BOOKING_ACTIONS:
+        raise ValueError(f"unknown booking action: {action}")
+    return _booking_action_serializer().dumps({"ref": reference, "action": action})
+
+
+def verify_booking_action(token, max_age=BOOKING_ACTION_MAX_AGE):
+    """Return {"ref", "action"} for a valid token, else None."""
+    if not token:
+        return None
+    try:
+        data = _booking_action_serializer().loads(token, max_age=max_age)
+    except (BadSignature, SignatureExpired):
+        return None
+    if not isinstance(data, dict):
+        return None
+    ref, action = data.get("ref"), data.get("action")
+    if not ref or action not in BOOKING_ACTIONS:
+        return None
+    return {"ref": ref, "action": action}
 
 
 def verify_password(password):
