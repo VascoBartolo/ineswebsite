@@ -45,7 +45,7 @@ def make_booking(**overrides):
     from datetime import date, time
     data = dict(
         reference="IB-TEST0001", sujeito="Bebé", tipo_consulta="Pós-parto",
-        regime="online", local_consulta=None, nome="Cliente Teste", idade=3,
+        regime="online", local_consulta=None, nome="Cliente Teste", idade="3",
         email="cliente@teste.pt", contacto="960000000", contexto=None,
         slot_date=date(2026, 7, 15), slot_time=time(16, 0),
         duration_minutes=60, price=50, status="confirmado",

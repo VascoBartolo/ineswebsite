@@ -14,7 +14,9 @@ class Booking(db.Model):
     regime = db.Column(db.String(20), nullable=False)
     local_consulta = db.Column(db.String(100))
     nome = db.Column(db.String(200), nullable=False)
-    idade = db.Column(db.Integer, nullable=False)
+    # Free text, not an integer: babies' ages are given in months ("6 meses"),
+    # adults' in years. The unit is conveyed by `sujeito` and the form label.
+    idade = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(200), nullable=False)
     contacto = db.Column(db.String(50), nullable=False)
     contexto = db.Column(db.Text)

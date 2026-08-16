@@ -3,7 +3,7 @@ import { adminApi } from './adminApi';
 
 const FIELDS = [
   ['nome', 'Nome', 'text'], ['email', 'Email', 'email'], ['contacto', 'Contacto', 'text'],
-  ['idade', 'Idade', 'number'], ['sujeito', 'Sujeito', 'text'], ['tipo_consulta', 'Tipo de consulta', 'text'],
+  ['idade', 'Idade', 'text'], ['sujeito', 'Sujeito', 'text'], ['tipo_consulta', 'Tipo de consulta', 'text'],
   ['slot_date', 'Data', 'date'], ['slot_time', 'Hora', 'time'], ['price', 'Preço (€)', 'number'],
 ];
 
@@ -18,7 +18,7 @@ export default function EditBookingModal({ booking, onClose, onSaved }) {
     try {
       await adminApi.editBooking(booking.reference, {
         ...form,
-        idade: Number(form.idade), price: Number(form.price),
+        price: Number(form.price),
         duration_minutes: Number(form.duration_minutes),
       });
       onSaved();
