@@ -33,6 +33,15 @@ def _fmt_date(d):
     return f"{_WEEKDAYS[d.weekday()]}, {d.day} de {_MONTHS[d.month]} de {d.year}"
 
 
+def _fmt_idade(booking):
+    """Age is free text now (babies in months, adults in years). Append the unit
+    derived from `sujeito` only when the value is a bare number, so a value the
+    client already spelled out (e.g. "6 meses") is shown as-is, not doubled."""
+    val = str(booking.idade).strip()
+    unit = "meses" if (booking.sujeito or "").lower() == "bebé" else "anos"
+    return f"{escape(val)} {unit}" if val.isdigit() else escape(val)
+
+
 def _send(to, subject, html, reply_to=None):
     if not SMTP_USER or not SMTP_PASS:
         logger.info("(no SMTP configured) Would send to %s: %s", to, subject)
@@ -213,7 +222,7 @@ def send_nutritionist_new_booking(booking):
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;width:120px;">Nome</td>
             <td style="padding:5px 0;font-weight:600;">{escape(booking.nome)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Idade</td>
-            <td style="padding:5px 0;">{booking.idade} anos</td></tr>
+            <td style="padding:5px 0;">{_fmt_idade(booking)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Email</td>
             <td style="padding:5px 0;">{escape(booking.email)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Contacto</td>
