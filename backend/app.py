@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import secrets
 import string
 from calendar import monthrange
@@ -10,6 +11,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from sqlalchemy import text
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 
 logging.basicConfig(
@@ -26,6 +29,14 @@ import email_service
 load_dotenv()
 
 app = Flask(__name__)
+
+# Behind the ACA ingress + nginx, the caller's IP arrives in X-Forwarded-For.
+# Without this, request.remote_addr is the proxy, so rate limiting and request
+# logging key on the proxy (one shared bucket) instead of the real client.
+# NOTE: x_for is the number of TRUSTED proxy hops — verify against the actual
+# X-Forwarded-For chain (cloud review) before relying on it for security; too
+# high a value lets clients spoof their IP.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 allowed_origins = [
     "http://localhost:5173",
@@ -49,6 +60,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["ADMIN_PASSWORD_HASH"] = os.environ.get("ADMIN_PASSWORD_HASH", "")
 app.config["ADMIN_TOKEN_SECRET"] = os.environ.get("ADMIN_TOKEN_SECRET", "")
 app.config["ADMIN_COOKIE_SECURE"] = os.environ.get("ADMIN_COOKIE_SECURE", "true").lower() == "true"
+# Cap request bodies so an oversized payload can't exhaust memory. Bookings and
+# contact messages are small; 64 KB is generous. Over-limit -> 413.
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
 db.init_app(app)
 
@@ -77,6 +91,10 @@ def not_found_error(e):
 def method_not_allowed(e):
     return jsonify({"error": "method_not_allowed"}), 405
 
+@app.errorhandler(413)
+def payload_too_large(e):
+    return jsonify({"error": "payload_too_large"}), 413
+
 @app.errorhandler(429)
 def rate_limited(e):
     return jsonify({"error": "rate_limited", "message": "Demasiados pedidos. Tente novamente mais tarde."}), 429
@@ -91,6 +109,29 @@ def internal_error(e):
 def log_request(response):
     logger.info("%s %s %s %s", request.method, request.path, response.status_code, request.remote_addr)
     return response
+
+
+# ---- Validation ----
+
+# Pragmatic email shape check (not full RFC): non-empty local/domain, one @, a dot
+# in the domain. Real deliverability is proven by the confirmation email itself.
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# Per-field maximum lengths, aligned with the DB columns. Over-limit input is a
+# 400, never a 500 from the database.
+BOOKING_LIMITS = {
+    "sujeito": 20, "tipo_consulta": 100, "regime": 20, "nome": 200,
+    "idade": 50, "email": 200, "contacto": 50, "local_consulta": 100, "contexto": 2000,
+}
+
+
+def _too_long(data, limits):
+    """Return the first field that exceeds its length cap, or None."""
+    for field, limit in limits.items():
+        v = data.get(field)
+        if v is not None and len(str(v).strip()) > limit:
+            return field
+    return None
 
 
 # ---- Business logic ----
@@ -227,6 +268,12 @@ def create_booking():
     if missing:
         return jsonify({"error": f"missing fields: {', '.join(missing)}"}), 400
 
+    too_long = _too_long(data, BOOKING_LIMITS)
+    if too_long:
+        return jsonify({"error": "field_too_long", "field": too_long}), 400
+    if not EMAIL_RE.match((data.get("email") or "").strip()):
+        return jsonify({"error": "invalid_email", "message": "Email inválido."}), 400
+
     try:
         slot_date = date.fromisoformat(data["slot_date"])
         h, m = data["slot_time"].split(":")
@@ -238,8 +285,16 @@ def create_booking():
     price = compute_price(is_first, data["regime"])
     duration = compute_duration(data["sujeito"], is_first)
 
-    local_consulta_val = data.get("local_consulta") if data["regime"].lower() == "presencial" else None
+    local_consulta_val = ((data.get("local_consulta") or "").strip() or None) if data["regime"].lower() == "presencial" else None
     new_location = (data["regime"].lower(), local_consulta_val)
+
+    # Serialize concurrent bookings for the same day so the availability check and the
+    # insert below can't interleave into a double-booking (TOCTOU). Transaction-scoped
+    # advisory lock: auto-released on commit/rollback and shared across all replicas.
+    # Postgres only — a harmless no-op on SQLite (tests).
+    if db.engine.dialect.name == "postgresql":
+        db.session.execute(text("SELECT pg_advisory_xact_lock(:k)"),
+                           {"k": int(slot_date.strftime("%Y%m%d"))})
 
     # Confirm slot still available
     all_events = db_busy_intervals(slot_date) + calendar_service.get_gcal_events(slot_date)
@@ -254,14 +309,14 @@ def create_booking():
 
     booking = Booking(
         reference=reference,
-        sujeito=data["sujeito"],
-        tipo_consulta=data["tipo_consulta"],
-        regime=data["regime"],
+        sujeito=data["sujeito"].strip(),
+        tipo_consulta=data["tipo_consulta"].strip(),
+        regime=data["regime"].strip(),
         local_consulta=local_consulta_val,
-        nome=data["nome"],
+        nome=data["nome"].strip(),
         idade=str(data["idade"]).strip()[:50],
         email=data["email"].strip().lower(),
-        contacto=data["contacto"],
+        contacto=data["contacto"].strip(),
         contexto=(data.get("contexto") or "").strip() or None,
         slot_date=slot_date,
         slot_time=slot_time,
@@ -299,13 +354,18 @@ def contact():
 
     if not name or not email or not subject or not message:
         return jsonify({"error": "missing fields"}), 400
+    if len(name) > 200 or len(email) > 200 or len(subject) > 200 or len(message) > 5000:
+        return jsonify({"error": "field_too_long"}), 400
+    if not EMAIL_RE.match(email):
+        return jsonify({"error": "invalid_email", "message": "Email inválido."}), 400
 
-    phone = (data.get("phone") or "").strip()
+    phone = (data.get("phone") or "").strip()[:50]
     email_service.send_contact_message(name, email, phone, subject, message)
     return jsonify({"message": "sent"}), 200
 
 
 @app.route("/api/bookings/lookup")
+@limiter.limit("20 per minute")
 def lookup():
     reference = request.args.get("reference", "").strip().upper()
     email = request.args.get("email", "").strip().lower()
@@ -325,6 +385,7 @@ def lookup():
 
 
 @app.route("/api/bookings/<reference>/cancel", methods=["PUT"])
+@limiter.limit("20 per minute")
 def cancel_booking(reference):
     data = request.get_json(force=True) or {}
     email = data.get("email", "").strip().lower()
@@ -357,6 +418,7 @@ def cancel_booking(reference):
 
 
 @app.route("/api/bookings/<reference>/edit-request", methods=["PUT"])
+@limiter.limit("20 per minute")
 def edit_request(reference):
     data = request.get_json(force=True) or {}
     email = data.get("email", "").strip().lower()

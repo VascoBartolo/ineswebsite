@@ -1,10 +1,16 @@
 from datetime import date, timedelta
 import calendar_service
 
-# 2026-08-01 is a Saturday, 08-02 a Sunday, 08-03 a Monday.
-SATURDAY = date(2026, 8, 1)
-SUNDAY = date(2026, 8, 2)
-MONDAY = date(2026, 8, 3)
+# Dates must stay in the future: get_available_slots only offers slots ≥24h ahead,
+# so hardcoded past dates would return no slots. Compute the next Saturday at least
+# 3 days out, then the Sunday/Monday that follow it.
+_today = date.today()
+_to_sat = (5 - _today.weekday()) % 7
+if _to_sat < 3:
+    _to_sat += 7
+SATURDAY = _today + timedelta(days=_to_sat)
+SUNDAY = SATURDAY + timedelta(days=1)
+MONDAY = SATURDAY + timedelta(days=2)
 
 
 def test_reference_dates_are_the_weekdays_we_expect():
