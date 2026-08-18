@@ -327,7 +327,7 @@ export default function BookingPage() {
           slot_date: form.slotDate,
           slot_time: form.slotTime,
           nome: form.nome,
-          idade: parseInt(form.idade),
+          idade: form.idade.trim(),
           email: form.email,
           contacto: form.contacto,
           contexto: form.contexto || undefined,
@@ -745,14 +745,13 @@ export default function BookingPage() {
                           />
                         </div>
                         <div className="p-field">
-                          <label>Idade <span className="req">*</span></label>
+                          <label>Idade ({form.sujeito === 'bebé' ? 'Meses' : 'Anos'}) <span className="req">*</span></label>
                           <input
-                            type="number"
+                            type="text"
                             value={form.idade}
                             onChange={e => setField('idade', e.target.value)}
-                            placeholder="Anos"
-                            min="0"
-                            max="120"
+                            placeholder={form.sujeito === 'bebé' ? 'Ex: 6 meses' : 'Ex: 34'}
+                            maxLength={50}
                           />
                         </div>
                         <div className="p-field">

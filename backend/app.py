@@ -259,7 +259,7 @@ def create_booking():
         regime=data["regime"],
         local_consulta=local_consulta_val,
         nome=data["nome"],
-        idade=int(data["idade"]),
+        idade=str(data["idade"]).strip()[:50],
         email=data["email"].strip().lower(),
         contacto=data["contacto"],
         contexto=(data.get("contexto") or "").strip() or None,

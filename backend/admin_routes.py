@@ -82,7 +82,10 @@ def list_bookings():
     total = q.count()
     rows = q.offset((page - 1) * per_page).limit(per_page).all()
 
-    agg = q.with_entities(
+    # Drop the ORDER BY (slot_date/slot_time) before aggregating: an aggregate-only
+    # SELECT with no GROUP BY cannot carry an ORDER BY on non-grouped columns —
+    # PostgreSQL rejects it (SQLite silently allows it, which is why tests miss it).
+    agg = q.order_by(None).with_entities(
         db.func.count().label("cnt"),
         db.func.count(db.case((Booking.status == "confirmado", 1))).label("confirmed"),
         db.func.coalesce(
