@@ -56,11 +56,12 @@ Get-Content (Join-Path $repoRoot "backend\.env") | ForEach-Object {
     }
 }
 $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $repoRoot "backend\credentials.json")))
-if ([string]::IsNullOrEmpty($PgPassword)) {
-    $chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".ToCharArray()
-    $PgPassword = (-join (1..27 | ForEach-Object { $chars | Get-Random })) + "aA7"
-    Write-Host "Generated Postgres admin password (SAVE THIS): $PgPassword" -ForegroundColor Yellow
-}
+# We only have a Postgres password we can trust when the caller passes -PgPassword,
+# or when we generate one for a brand-new server (in the Postgres section below).
+# CRITICAL: on a re-run against an EXISTING server with no -PgPassword we must NOT
+# invent one — doing so would overwrite the working `database-url` secret with a
+# wrong password and break the backend. So generation is deferred to server-create.
+$PgPasswordKnown = -not [string]::IsNullOrEmpty($PgPassword)
 
 # ---------------------------------------------------------------------------
 # 2. Resource group + ACR (Basic) in West Europe
@@ -88,6 +89,12 @@ docker push  "${acrServer}/ib-frontend:${ImageTag}"
 Section "Postgres Flexible Server"
 $pgExists = az postgres flexible-server show -n $PgServer -g $ResourceGroup --query name -o tsv 2>$null
 if (-not $pgExists) {
+    if (-not $PgPasswordKnown) {
+        $chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".ToCharArray()
+        $PgPassword = (-join (1..27 | ForEach-Object { $chars | Get-Random })) + "aA7"
+        $PgPasswordKnown = $true
+        Write-Host "Generated Postgres admin password (SAVE THIS): $PgPassword" -ForegroundColor Yellow
+    }
     az postgres flexible-server create -g $ResourceGroup -n $PgServer --location $Location `
         --tier Burstable --sku-name Standard_B1ms --storage-size 32 --version 16 `
         --admin-user $PgAdmin --admin-password $PgPassword `
@@ -101,7 +108,9 @@ $myIp = (Invoke-RestMethod -Uri "https://api.ipify.org").Trim()
 az postgres flexible-server firewall-rule create -g $ResourceGroup -n $PgServer `
     --rule-name deployer --start-ip-address $myIp --end-ip-address $myIp --only-show-errors | Out-Null
 $pgFqdn = az postgres flexible-server show -n $PgServer -g $ResourceGroup --query "fullyQualifiedDomainName" -o tsv
-$databaseUrl = "postgresql://${PgAdmin}:${PgPassword}@${pgFqdn}:5432/${PgDb}?sslmode=require"
+# Only when we hold a trusted password. Left $null on an existing-server re-run so the
+# secret-set below leaves the working database-url untouched.
+$databaseUrl = if ($PgPasswordKnown) { "postgresql://${PgAdmin}:${PgPassword}@${pgFqdn}:5432/${PgDb}?sslmode=require" } else { $null }
 
 # ---------------------------------------------------------------------------
 # 5. Backend app (internal ingress) in the shared environment
@@ -109,6 +118,9 @@ $databaseUrl = "postgresql://${PgAdmin}:${PgPassword}@${pgFqdn}:5432/${PgDb}?ssl
 Section "Backend app"
 $backendExists = az containerapp show -n $BackendApp -g $ResourceGroup --query name -o tsv 2>$null
 if (-not $backendExists) {
+    if (-not $PgPasswordKnown) {
+        throw "Backend app does not exist yet but no Postgres password is known. Re-run with -PgPassword <the DB password> so DATABASE_URL is set correctly."
+    }
     az containerapp create --name $BackendApp --resource-group $ResourceGroup --environment $EnvResourceId `
         --image "${acrServer}/ib-backend:${ImageTag}" --registry-server $acrServer `
         --target-port 5000 --ingress internal --min-replicas 1 --max-replicas 3 --cpu 0.25 --memory 0.5Gi `
@@ -120,8 +132,17 @@ if (-not $backendExists) {
             "SITE_URL=$($cfg['SITE_URL'])" "FRONTEND_URL=$($cfg['FRONTEND_URL'])" "GOOGLE_CREDENTIALS_FILE=/app/credentials.json" `
         --only-show-errors | Out-Null
 } else {
-    az containerapp secret set -n $BackendApp -g $ResourceGroup `
-        --secrets "database-url=$databaseUrl" "smtp-user=$($cfg['SMTP_USER'])" "smtp-pass=$($cfg['SMTP_PASS'])" "google-b64=$b64" --only-show-errors | Out-Null
+    # Always refresh the non-DB secrets. Only touch database-url when we hold a trusted
+    # password; otherwise leave the existing (working) secret in place — this is the
+    # guard against the re-run footgun that used to overwrite it with a wrong password.
+    if ($PgPasswordKnown) {
+        az containerapp secret set -n $BackendApp -g $ResourceGroup `
+            --secrets "database-url=$databaseUrl" "smtp-user=$($cfg['SMTP_USER'])" "smtp-pass=$($cfg['SMTP_PASS'])" "google-b64=$b64" --only-show-errors | Out-Null
+    } else {
+        Write-Host "No -PgPassword given; leaving existing database-url secret untouched." -ForegroundColor Yellow
+        az containerapp secret set -n $BackendApp -g $ResourceGroup `
+            --secrets "smtp-user=$($cfg['SMTP_USER'])" "smtp-pass=$($cfg['SMTP_PASS'])" "google-b64=$b64" --only-show-errors | Out-Null
+    }
     az containerapp update -n $BackendApp -g $ResourceGroup --image "${acrServer}/ib-backend:${ImageTag}" --only-show-errors | Out-Null
 }
 $backendFqdn = az containerapp show -n $BackendApp -g $ResourceGroup --query "properties.configuration.ingress.fqdn" -o tsv
