@@ -33,10 +33,12 @@ app = Flask(__name__)
 # Behind the ACA ingress + nginx, the caller's IP arrives in X-Forwarded-For.
 # Without this, request.remote_addr is the proxy, so rate limiting and request
 # logging key on the proxy (one shared bucket) instead of the real client.
-# NOTE: x_for is the number of TRUSTED proxy hops — verify against the actual
-# X-Forwarded-For chain (cloud review) before relying on it for security; too
-# high a value lets clients spoof their IP.
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+# x_for=3 verified empirically against the live chain (2026-08-16): the request
+# passes through three trusted proxies — frontend ACA ingress, frontend nginx,
+# backend ACA ingress — which append exactly three entries, so the real client
+# IP sits at position -3. Client-supplied X-Forwarded-For entries stay to the
+# left of those three, so this cannot be spoofed.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=3, x_proto=1)
 
 allowed_origins = [
     "http://localhost:5173",
