@@ -50,14 +50,14 @@ function fmtDate(dateStr) {
   return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} de ${MONTH_NAMES[d.getMonth()].toLowerCase()} de ${d.getFullYear()}`;
 }
 
-// Status shown to the client combines the booking status (which holds the slot) with
-// the nutritionist's decision (nutri_status). A cancellation always wins.
+// Status shown to the client, straight from the booking lifecycle:
+// pendente (awaiting approval) / confirmado / revisao (needs a new time) / cancelado.
 function bookingStatusInfo(b) {
   if (!b) return { label: '', cls: '' };
-  if (b.status === 'cancelado') return { label: 'Cancelado', cls: 'cancelado' };
-  switch (b.nutri_status) {
-    case 'confirmada': return { label: 'Confirmado', cls: 'confirmado' };
+  switch (b.status) {
+    case 'confirmado': return { label: 'Confirmado', cls: 'confirmado' };
     case 'revisao':    return { label: 'Necessita Alteração', cls: 'revisao' };
+    case 'cancelado':  return { label: 'Cancelado', cls: 'cancelado' };
     default:           return { label: 'Pendente', cls: 'pendente' };
   }
 }
@@ -877,14 +877,14 @@ export default function BookingPage() {
                       <div className="lr-row"><span>Preço</span><strong>{lookupResult.price}€</strong></div>
                     </div>
 
-                    {lookupResult.status !== 'cancelado' && lookupResult.nutri_status === 'revisao' && (
+                    {lookupResult.status === 'revisao' && (
                       <div className="lr-note">
                         A disponibilidade da nutricionista alterou-se e esta marcação necessita de revisão.
                         A nutricionista entrará em contacto para combinar uma nova data.
                       </div>
                     )}
 
-                    {lookupResult.status === 'confirmado' && !cancelConfirm && !editMode && !editSent && (
+                    {(lookupResult.status === 'confirmado' || lookupResult.status === 'pendente') && !cancelConfirm && !editMode && !editSent && (
                       <div className="lr-actions">
                         <button className="btn-outline" onClick={() => setEditMode(true)}>
                           Pedir Alteração

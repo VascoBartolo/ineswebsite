@@ -24,11 +24,13 @@ class Booking(db.Model):
     slot_time = db.Column(db.Time, nullable=False)
     duration_minutes = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Numeric(10, 2), nullable=False)
-    status = db.Column(db.String(20), default="confirmado", nullable=False, index=True)
-    # Nutritionist's decision on the request, tracked separately from `status` so it
-    # never affects availability/stats. "pendente" until she acts from the notification
-    # email; then "confirmada" or "revisao".
-    nutri_status = db.Column(db.String(20), default="pendente", nullable=False, index=True)
+    # Full booking lifecycle in one field:
+    #   pendente   — requested, awaiting the nutritionist's approval. HOLDS the slot,
+    #                but no Google Calendar event exists yet.
+    #   confirmado — approved by the nutritionist; calendar event created. HOLDS the slot.
+    #   revisao    — rejected / needs a new time. Does NOT hold the slot.
+    #   cancelado  — cancelled by the client. Does NOT hold the slot.
+    status = db.Column(db.String(20), default="pendente", nullable=False, index=True)
     google_event_id = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -50,6 +52,5 @@ class Booking(db.Model):
             "duration_minutes": self.duration_minutes,
             "price": float(self.price),
             "status": self.status,
-            "nutri_status": self.nutri_status,
             "created_at": self.created_at.isoformat(),
         }

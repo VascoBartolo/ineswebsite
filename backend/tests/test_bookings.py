@@ -33,7 +33,7 @@ def test_create_booking_ok(client, app, monkeypatch):
     assert r.status_code == 201, r.get_json()
     body = r.get_json()["booking"]
     assert body["idade"] == "34"
-    assert body["nutri_status"] == "pendente"
+    assert body["status"] == "pendente"
     with app.app_context():
         assert Booking.query.filter_by(reference=body["reference"]).first() is not None
 

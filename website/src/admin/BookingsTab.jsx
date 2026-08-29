@@ -3,6 +3,8 @@ import { adminApi } from './adminApi';
 import EditBookingModal from './EditBookingModal';
 
 const REGIME_LABEL = { presencial: 'Presencial', online: 'Online' };
+const STATUS_LABEL = { pendente: 'Pendente', confirmado: 'Confirmado', revisao: 'Necessita Alteração', cancelado: 'Cancelado' };
+const STATUS_CLS = { pendente: 'pend', confirmado: 'ok', revisao: 'rev', cancelado: 'canc' };
 
 function fmtDate(iso) {
   const d = new Date(iso + 'T00:00:00');
@@ -55,7 +57,7 @@ export default function BookingsTab() {
           <input placeholder="Nome, email ou referência…" value={filters.q} onChange={set('q')} /></div>
         <div className="fld"><label>Estado</label>
           <select value={filters.status} onChange={set('status')}>
-            <option value="all">Todos</option><option value="confirmado">Confirmado</option><option value="cancelado">Cancelado</option>
+            <option value="all">Todos</option><option value="pendente">Pendente</option><option value="confirmado">Confirmado</option><option value="revisao">Necessita Alteração</option><option value="cancelado">Cancelado</option>
           </select></div>
         <div className="fld"><label>Regime</label>
           <select value={filters.regime} onChange={set('regime')}>
@@ -83,9 +85,9 @@ export default function BookingsTab() {
                 <td data-label="Consulta">{b.tipo_consulta}<div className="sub">{b.sujeito} · {b.idade}</div></td>
                 <td data-label="Regime"><span className={`pill ${b.regime === 'online' ? 'onl' : 'pres'}`}>{REGIME_LABEL[b.regime] || b.regime}</span>{b.local_consulta && <div className="sub">{b.local_consulta}</div>}</td>
                 <td data-label="Preço">{Number(b.price).toFixed(0)}€</td>
-                <td data-label="Estado"><span className={`pill ${b.status === 'cancelado' ? 'canc' : 'ok'}`}>{b.status === 'cancelado' ? 'Cancelado' : 'Confirmado'}</span></td>
+                <td data-label="Estado"><span className={`pill ${STATUS_CLS[b.status] || 'ok'}`}>{STATUS_LABEL[b.status] || b.status}</span></td>
                 <td data-label="Ações"><div className="acts">
-                  {b.status !== 'cancelado' && <button className="ic" title="Editar" onClick={() => setEditing(b)}>✎</button>}
+                  <button className="ic" title="Editar" onClick={() => setEditing(b)}>✎</button>
                   {b.status !== 'cancelado' && <button className="ic" title="Cancelar" onClick={() => cancel(b.reference)}>⊘</button>}
                   <button className="ic" title="Eliminar" onClick={() => remove(b.reference)}>🗑</button>
                 </div></td>

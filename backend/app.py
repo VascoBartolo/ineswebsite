@@ -168,7 +168,8 @@ def db_busy_intervals_range(start_date, end_date):
     bookings = Booking.query.filter(
         Booking.slot_date >= start_date,
         Booking.slot_date <= end_date,
-        Booking.status == "confirmado",
+        # Pending requests hold the slot too — not only nutritionist-approved ones.
+        Booking.status.in_(["pendente", "confirmado"]),
     ).all()
     buckets = {}
     for b in bookings:
@@ -324,17 +325,15 @@ def create_booking():
         slot_time=slot_time,
         duration_minutes=duration,
         price=price,
-        status="confirmado",
+        status="pendente",
     )
 
     db.session.add(booking)
     db.session.commit()
 
-    # Google Calendar event
-    event_id = calendar_service.create_event(booking)
-    if event_id:
-        booking.google_event_id = event_id
-        db.session.commit()
+    # NB: no Google Calendar event is created here. The event is created only when
+    # the nutritionist approves the request (see booking_action_routes.action_execute).
+    # The slot is still held meanwhile because pending bookings count as busy.
 
     # Email notifications. The client is told the slot is reserved and awaiting the
     # nutritionist's confirmation ("Consulta Marcada"); she confirms/revises from the
