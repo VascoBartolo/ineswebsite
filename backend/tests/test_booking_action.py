@@ -66,7 +66,7 @@ def test_get_landing_cancelled_booking(client, app):
 
 # ---- POST execute ----
 
-def test_post_confirm_sets_status_and_emails(client, app, monkeypatch):
+def test_post_confirm_sets_status_and_creates_event(client, app, monkeypatch):
     seen = {"confirmed": 0, "review": 0}
     monkeypatch.setattr(booking_action_routes.email_service,
                         "send_booking_confirmed_client",
@@ -74,14 +74,17 @@ def test_post_confirm_sets_status_and_emails(client, app, monkeypatch):
     monkeypatch.setattr(booking_action_routes.email_service,
                         "send_booking_review_client",
                         lambda b: seen.__setitem__("review", seen["review"] + 1))
+    monkeypatch.setattr(booking_action_routes.calendar_service, "create_event", lambda b: "evt-new")
     with app.app_context():
-        make_booking(reference="IB-A")
+        make_booking(reference="IB-A", status="pendente", google_event_id=None)
     token = _sign(app, "IB-A", "confirm")
     r = client.post("/api/bookings/action", data={"token": token})
     assert r.status_code == 200
     assert seen == {"confirmed": 1, "review": 0}
     with app.app_context():
-        assert Booking.query.filter_by(reference="IB-A").first().nutri_status == "confirmada"
+        b = Booking.query.filter_by(reference="IB-A").first()
+        assert b.status == "confirmado"
+        assert b.google_event_id == "evt-new"  # calendar event created ONLY on approval
 
 
 def test_post_revise_sets_status_and_emails(client, app, monkeypatch):
@@ -93,13 +96,31 @@ def test_post_revise_sets_status_and_emails(client, app, monkeypatch):
                         "send_booking_review_client",
                         lambda b: seen.__setitem__("review", seen["review"] + 1))
     with app.app_context():
-        make_booking(reference="IB-B")
+        make_booking(reference="IB-B", status="pendente", google_event_id=None)
     token = _sign(app, "IB-B", "revise")
     r = client.post("/api/bookings/action", data={"token": token})
     assert r.status_code == 200
     assert seen == {"confirmed": 0, "review": 1}
     with app.app_context():
-        assert Booking.query.filter_by(reference="IB-B").first().nutri_status == "revisao"
+        assert Booking.query.filter_by(reference="IB-B").first().status == "revisao"
+
+
+def test_post_revise_deletes_calendar_event(client, app, monkeypatch):
+    """Rejecting a previously-confirmed booking removes its calendar event and frees the slot."""
+    deleted = {"n": 0}
+    monkeypatch.setattr(booking_action_routes.email_service, "send_booking_review_client", lambda b: None)
+    monkeypatch.setattr(booking_action_routes.calendar_service, "delete_event",
+                        lambda eid: deleted.__setitem__("n", deleted["n"] + 1))
+    with app.app_context():
+        make_booking(reference="IB-D", status="confirmado", google_event_id="evt-existing")
+    token = _sign(app, "IB-D", "revise")
+    r = client.post("/api/bookings/action", data={"token": token})
+    assert r.status_code == 200
+    assert deleted["n"] == 1
+    with app.app_context():
+        b = Booking.query.filter_by(reference="IB-D").first()
+        assert b.status == "revisao"
+        assert b.google_event_id is None
 
 
 def test_post_confirm_idempotent(client, app, monkeypatch):
@@ -107,8 +128,9 @@ def test_post_confirm_idempotent(client, app, monkeypatch):
     monkeypatch.setattr(booking_action_routes.email_service,
                         "send_booking_confirmed_client",
                         lambda b: calls.__setitem__("n", calls["n"] + 1))
+    monkeypatch.setattr(booking_action_routes.calendar_service, "create_event", lambda b: "evt-x")
     with app.app_context():
-        make_booking(reference="IB-A")
+        make_booking(reference="IB-A", status="pendente", google_event_id=None)
     token = _sign(app, "IB-A", "confirm")
     client.post("/api/bookings/action", data={"token": token})
     r2 = client.post("/api/bookings/action", data={"token": token})
@@ -134,4 +156,4 @@ def test_post_cancelled_booking_blocked(client, app, monkeypatch):
     assert r.status_code == 200
     assert calls["n"] == 0
     with app.app_context():
-        assert Booking.query.filter_by(reference="IB-C").first().nutri_status == "pendente"
+        assert Booking.query.filter_by(reference="IB-C").first().status == "cancelado"

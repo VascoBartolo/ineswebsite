@@ -123,6 +123,8 @@
 .pill.onl { background: #EAF0F7; color: var(--blue); }
 .pill.ok { background: #EAF3EE; color: var(--green); }
 .pill.canc { background: #F7EAEA; color: var(--red); }
+.pill.pend { background: #FBF3DD; color: #9a7d13; }
+.pill.rev { background: #FBEBDD; color: #b5651d; }
 .row-canc td { opacity: .5; }
 
 .acts { display: flex; gap: 6px; }

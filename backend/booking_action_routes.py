@@ -16,6 +16,7 @@ from markupsafe import escape
 
 import auth
 from models import db, Booking
+import calendar_service
 import email_service
 
 logger = logging.getLogger("ibnutricao.booking_action")
@@ -117,15 +118,29 @@ def action_execute():
                      f"A consulta <strong>{escape(ref)}</strong> foi cancelada, "
                      "pelo que não é possível efetuar esta ação.")
 
-    target = "confirmada" if action == "confirm" else "revisao"
+    target = "confirmado" if action == "confirm" else "revisao"
 
     # Idempotent: repeated clicks (or a prefetch that slipped through) must not
-    # re-send client emails.
-    if booking.nutri_status == target:
+    # re-run the side effects (calendar event, client email).
+    if booking.status == target:
         logger.info("Booking action %s no-op (already %s) for %s", action, target, ref)
         return _already_done_page(action, ref)
 
-    booking.nutri_status = target
+    booking.status = target
+    if action == "confirm":
+        # Approval is the moment the appointment enters her calendar.
+        try:
+            booking.google_event_id = calendar_service.create_event(booking)
+        except Exception as e:
+            logger.error("Booking confirm: calendar event failed for %s: %s", ref, e)
+    elif booking.google_event_id:
+        # Rejected after a prior confirm: remove it from the calendar so it stops
+        # holding the slot and doesn't linger in the agenda.
+        try:
+            calendar_service.delete_event(booking.google_event_id)
+        except Exception as e:
+            logger.error("Booking revise: calendar delete failed for %s: %s", ref, e)
+        booking.google_event_id = None
     db.session.commit()
 
     try:
@@ -136,7 +151,7 @@ def action_execute():
     except Exception as e:
         logger.error("Booking action %s: client email failed for %s: %s", action, ref, e)
 
-    logger.info("Booking action %s applied to %s (nutri_status=%s)", action, ref, target)
+    logger.info("Booking action %s applied to %s (status=%s)", action, ref, target)
 
     if action == "confirm":
         return _page("Consulta confirmada ✓",

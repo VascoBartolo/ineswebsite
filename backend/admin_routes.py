@@ -42,6 +42,19 @@ def _booking_admin_dict(b):
     return d
 
 
+def _sync_calendar(booking):
+    """Reconcile the Google Calendar event with the booking's status: a confirmed
+    booking must have an up-to-date event; any other status must have none. This
+    pushes admin date/time/detail edits straight to the agenda, creates the event
+    when an admin re-confirms a cancelled/pending booking, and removes it when a
+    booking is moved out of the confirmed state."""
+    if booking.status == "confirmado":
+        booking.google_event_id = calendar_service.update_event(booking.google_event_id, booking)
+    elif booking.google_event_id:
+        calendar_service.delete_event(booking.google_event_id)
+        booking.google_event_id = None
+
+
 @admin_bp.route("/bookings")
 @auth.require_admin
 def list_bookings():
@@ -54,7 +67,7 @@ def list_bookings():
     date_to = request.args.get("date_to", "").strip()
     search = request.args.get("q", "").strip().lower()
 
-    if status in ("confirmado", "cancelado"):
+    if status in ("pendente", "confirmado", "revisao", "cancelado"):
         q = q.filter(Booking.status == status)
     if regime in ("presencial", "online"):
         q = q.filter(db.func.lower(Booking.regime) == regime)
@@ -169,6 +182,8 @@ def edit_booking(reference):
         return jsonify({"error": "not_found"}), 404
 
     data = request.get_json(force=True) or {}
+    # The admin chooses per-save whether the client is emailed the new details.
+    notify = bool(data.get("notify", True))
     for field in EDITABLE_FIELDS:
         if field in data and data[field] is not None:
             setattr(booking, field, data[field])
@@ -184,14 +199,15 @@ def edit_booking(reference):
 
     partial = []
     try:
-        booking.google_event_id = calendar_service.update_event(booking.google_event_id, booking)
+        _sync_calendar(booking)
         db.session.commit()
     except Exception as e:
         partial.append(f"calendar: {e}")
-    try:
-        email_service.send_booking_updated_client(booking)
-    except Exception as e:
-        partial.append(f"email: {e}")
+    if notify:
+        try:
+            email_service.send_booking_updated_client(booking)
+        except Exception as e:
+            partial.append(f"email: {e}")
 
     return jsonify({"booking": _booking_admin_dict(booking), "partial_failures": partial})
 
