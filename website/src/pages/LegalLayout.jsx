@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { ENTITY, LAST_UPDATED } from './legalInfo';
+import { ENTITY, LAST_UPDATED, PRACTICE_REGION } from './legalInfo';
 import './LegalPage.css';
 
 /**
@@ -42,7 +42,7 @@ export default function LegalLayout({ eyebrow, title, documentTitle, children })
       <footer className="legal-footer">
         <p>{ENTITY.brand} · {ENTITY.name} · {ENTITY.role}</p>
         <p>
-          {ENTITY.address} ·{' '}
+          {PRACTICE_REGION} ·{' '}
           <a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a>
         </p>
         <div className="legal-footer-links">

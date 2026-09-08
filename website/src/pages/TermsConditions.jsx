@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import LegalLayout from './LegalLayout';
-import { ENTITY, CANCELLATION_NOTICE_HOURS } from './legalInfo';
+import { ENTITY, CANCELLATION_NOTICE_HOURS, PRACTICE_LOCATIONS } from './legalInfo';
 
 export default function TermsConditions() {
   return (
@@ -28,8 +28,8 @@ export default function TermsConditions() {
             <dd>{ENTITY.nif}</dd>
             <dt>Inscrição</dt>
             <dd>{ENTITY.professionalOrder} — {ENTITY.professionalId}</dd>
-            <dt>Morada</dt>
-            <dd>{ENTITY.address}</dd>
+            <dt>Locais de atendimento</dt>
+            <dd>{PRACTICE_LOCATIONS.join(' · ')}</dd>
             <dt>E-mail</dt>
             <dd><a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a></dd>
             <dt>Telefone</dt>

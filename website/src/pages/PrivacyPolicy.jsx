@@ -1,5 +1,5 @@
 import LegalLayout from './LegalLayout';
-import { ENTITY } from './legalInfo';
+import { ENTITY, PRACTICE_LOCATIONS } from './legalInfo';
 
 export default function PrivacyPolicy() {
   return (
@@ -26,8 +26,8 @@ export default function PrivacyPolicy() {
             <dd>{ENTITY.nif}</dd>
             <dt>Inscrição</dt>
             <dd>{ENTITY.professionalOrder} — {ENTITY.professionalId}</dd>
-            <dt>Morada</dt>
-            <dd>{ENTITY.address}</dd>
+            <dt>Locais de atendimento</dt>
+            <dd>{PRACTICE_LOCATIONS.join(' · ')}</dd>
             <dt>E-mail</dt>
             <dd><a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a></dd>
             <dt>Telefone</dt>
@@ -51,8 +51,7 @@ export default function PrivacyPolicy() {
             ao sistema de <strong>marcação e gestão de consultas</strong> (pedido de marcação,
             consulta do estado da marcação, pedido de alteração e cancelamento);
           </li>
-          <li>à comunicação por e-mail associada às marcações;</li>
-          <li>à área reservada de administração utilizada pela nutricionista.</li>
+          <li>à comunicação por e-mail associada às marcações.</li>
         </ul>
         <p>
           Não se aplica a sites de terceiros acessíveis a partir de ligações aqui
@@ -112,12 +111,6 @@ export default function PrivacyPolicy() {
           para deteção de abusos e limitação do número de pedidos por origem, e não são
           utilizados para criar perfis nem para publicidade.
         </p>
-
-        <h3>3.6. Área de administração</h3>
-        <p>
-          O acesso à área reservada gera um token de sessão autenticado, guardado num cookie
-          técnico. Aplica-se apenas à nutricionista, não a visitantes do site (ver o ponto 9).
-        </p>
       </section>
 
       <section>
@@ -167,11 +160,6 @@ export default function PrivacyPolicy() {
                 <td>Endereço IP e registos de pedidos</td>
                 <td>Artigo 6.º, n.º 1, al. f) — interesse legítimo na segurança do sistema</td>
               </tr>
-              <tr>
-                <td>Autenticação na área de administração</td>
-                <td>Cookie técnico de sessão</td>
-                <td>Artigo 6.º, n.º 1, al. f) — interesse legítimo em proteger o acesso</td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -216,10 +204,6 @@ export default function PrivacyPolicy() {
               <tr>
                 <td>Registos técnicos de acesso</td>
                 <td>Até 12 meses</td>
-              </tr>
-              <tr>
-                <td>Cookie de sessão de administração</td>
-                <td>Expira automaticamente; é eliminado ao terminar sessão</td>
               </tr>
             </tbody>
           </table>
@@ -278,13 +262,16 @@ export default function PrivacyPolicy() {
       <section>
         <h2>8. Segurança</h2>
         <p>
-          São aplicadas medidas técnicas e organizativas adequadas ao risco, designadamente:
-          comunicação cifrada por HTTPS; autenticação da área reservada com palavra-passe
-          guardada sob a forma de resumo criptográfico e sessão em cookie <em>HttpOnly</em>,{' '}
-          <em>Secure</em> e <em>SameSite=Strict</em>; limitação do número de pedidos por origem;
-          validação e limitação do tamanho dos dados submetidos; ligações de gestão de marcação
-          assinadas criptograficamente e com validade limitada; e acesso aos dados restrito à
-          nutricionista, sujeita a segredo profissional.
+          São aplicadas medidas técnicas e organizativas adequadas ao risco, nos termos do
+          artigo 32.º do RGPD, incluindo a cifragem das comunicações, o controlo de acessos, a
+          validação dos dados submetidos e mecanismos de proteção contra utilização abusiva do
+          serviço. O acesso aos dados é restrito à nutricionista, sujeita a segredo
+          profissional.
+        </p>
+        <p>
+          Por razões de segurança, não são divulgados os pormenores técnicos das medidas
+          aplicadas. Podem ser prestados a autoridades competentes, mediante pedido
+          fundamentado.
         </p>
         <p>
           Em caso de violação de dados pessoais suscetível de resultar num risco para os seus
@@ -297,44 +284,26 @@ export default function PrivacyPolicy() {
       <section>
         <h2>9. Cookies e tecnologias semelhantes</h2>
         <p>
-          Este site <strong>não utiliza cookies de análise, de publicidade, de redes sociais ou
-          de perfilagem</strong>, nem qualquer ferramenta de estatísticas de visitantes. Não são
-          utilizados <em>pixels</em> de seguimento nem armazenamento local do navegador para
-          acompanhar a sua navegação.
-        </p>
-        <p>É utilizado um único cookie, estritamente necessário:</p>
-        <div className="legal-table-wrap">
-          <table className="legal-table">
-            <thead>
-              <tr>
-                <th>Cookie</th>
-                <th>Finalidade</th>
-                <th>Duração</th>
-                <th>Tipo</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>admin_token</code></td>
-                <td>Manter a sessão autenticada na área reservada de administração da agenda</td>
-                <td>Sessão, com expiração automática</td>
-                <td>Estritamente necessário (primeira parte)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          Este cookie é criado apenas quando a nutricionista inicia sessão na área reservada, e
-          está limitado a esse caminho. <strong>Nunca é criado durante a navegação normal no
-          site nem durante a marcação de uma consulta.</strong>
+          <strong>Este site não coloca quaisquer cookies no seu equipamento</strong> durante a
+          navegação, a marcação de consultas ou a gestão de uma marcação. Também não é
+          utilizado armazenamento local do navegador para acompanhar a sua navegação.
         </p>
         <p>
-          Por se tratar de um cookie estritamente necessário à prestação de um serviço
-          expressamente solicitado pelo utilizador, está dispensado de consentimento prévio, nos
-          termos do artigo 5.º, n.º 3, da Lei n.º 41/2004, de 18 de agosto. É por esse motivo
-          que o site não apresenta qualquer banner de cookies. Caso venham a ser introduzidas
-          tecnologias não essenciais, será previamente pedido o seu consentimento e esta
-          política será atualizada.
+          Não são utilizadas ferramentas de estatísticas ou de análise de audiências, de
+          publicidade, de redes sociais, de perfilagem, nem <em>pixels</em> de seguimento. Não é
+          recolhido qualquer identificador que permita segui-lo entre sessões ou entre sites.
+        </p>
+        <p>
+          Uma vez que não são utilizadas tecnologias sujeitas a consentimento nos termos do
+          artigo 5.º, n.º 3, da Lei n.º 41/2004, de 18 de agosto, o site não apresenta — nem
+          necessita de apresentar — qualquer banner de cookies. Caso venham a ser introduzidas
+          tecnologias não essenciais, o seu consentimento será previamente solicitado e esta
+          política será atualizada em conformidade.
+        </p>
+        <p>
+          Nota: conforme indicado no ponto 6, as tipografias do site são carregadas a partir dos
+          servidores da Google, o que implica a transmissão do seu endereço IP à Google. Esse
+          carregamento não envolve a colocação de cookies no seu equipamento.
         </p>
       </section>
 
