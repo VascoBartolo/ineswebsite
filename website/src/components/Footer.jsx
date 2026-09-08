@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 
 function InstagramIcon({ size = 20 }) {
@@ -65,6 +66,16 @@ export default function Footer() {
           <p>inesbandarranutricao@gmail.com</p>
           <p>+351 969 743 355</p>
         </div>
+
+        <nav className="footer-nav footer-legal">
+          <span className="footer-nav-title">Legal</span>
+          <Link to="/politica-de-privacidade" className="footer-link">
+            Política de Privacidade
+          </Link>
+          <Link to="/termos-e-condicoes" className="footer-link">
+            Termos e Condições
+          </Link>
+        </nav>
       </div>
 
       <div className="footer-bottom">

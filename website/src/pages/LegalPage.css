@@ -1,0 +1,275 @@
+/* Shared shell for the standalone legal pages (privacy policy, terms).
+   Deliberately quiet and text-first: these are documents, not marketing. */
+
+.legal-page {
+  min-height: 100vh;
+  background: var(--off-white);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Header ===== */
+
+.legal-header {
+  background: rgba(253, 247, 247, 0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--blush);
+  padding: 0 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.legal-header-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.legal-back-link {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+  transition: color 0.2s;
+}
+
+.legal-back-link:hover { color: var(--crimson); }
+
+.legal-logo {
+  height: 44px;
+  width: auto;
+}
+
+/* ===== Title band ===== */
+
+.legal-hero {
+  background: linear-gradient(135deg, var(--light-bg) 0%, #fdf0f0 100%);
+  padding: 3.5rem 2rem 2.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--blush);
+}
+
+.legal-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+
+.legal-title {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 5vw, 2.9rem);
+  font-weight: 400;
+  color: var(--text-dark);
+  margin-top: 0.5rem;
+  line-height: 1.2;
+}
+
+.legal-updated {
+  margin-top: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: var(--text-muted);
+}
+
+/* ===== Content ===== */
+
+.legal-content {
+  flex: 1;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 3rem 2rem 4rem;
+  font-size: 0.95rem;
+  font-weight: 300;
+  line-height: 1.8;
+  color: var(--text-dark);
+}
+
+.legal-content .legal-intro {
+  font-size: 1.02rem;
+  line-height: 1.85;
+  color: var(--text-muted);
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--blush);
+}
+
+.legal-content section { margin-top: 2.75rem; }
+
+.legal-content h2 {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--mauve);
+  line-height: 1.3;
+  margin-bottom: 0.9rem;
+}
+
+.legal-content h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-top: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.legal-content p { margin-bottom: 1rem; }
+
+.legal-content ul {
+  margin: 0 0 1rem 0;
+  padding-left: 1.2rem;
+  list-style: none;
+}
+
+.legal-content ul li {
+  position: relative;
+  padding-left: 0.9rem;
+  margin-bottom: 0.55rem;
+}
+
+.legal-content ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--blush);
+}
+
+.legal-content strong { font-weight: 600; }
+
+.legal-content a {
+  color: var(--crimson);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+
+.legal-content a:hover { color: var(--mauve); }
+
+/* Identification / summary card */
+.legal-card {
+  background: var(--white);
+  border: 1px solid var(--blush);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem;
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 1rem;
+}
+
+.legal-card dl {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+}
+
+.legal-card dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rose);
+  padding-top: 0.15em;
+}
+
+.legal-card dd {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+/* Callout used for the "not a substitute for medical care" style notices */
+.legal-notice {
+  background: var(--light-bg);
+  border-left: 3px solid var(--crimson);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 1.1rem 1.4rem;
+  margin: 1.25rem 0;
+  font-size: 0.92rem;
+}
+
+.legal-notice p:last-child { margin-bottom: 0; }
+
+/* Purpose / legal-basis and retention tables */
+.legal-table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0 1.25rem;
+  border: 1px solid var(--blush);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+
+.legal-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 0.87rem;
+}
+
+.legal-table th,
+.legal-table td {
+  text-align: left;
+  padding: 0.8rem 1rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--light-bg);
+}
+
+.legal-table th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rose);
+  background: var(--off-white);
+}
+
+.legal-table tr:last-child td { border-bottom: none; }
+
+/* ===== Footer ===== */
+
+.legal-footer {
+  border-top: 1px solid var(--blush);
+  padding: 1.75rem 2rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: var(--text-muted);
+  background: var(--white);
+}
+
+.legal-footer p { margin-bottom: 0.35rem; }
+
+.legal-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.legal-footer-links a {
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.legal-footer-links a:hover { color: var(--crimson); }
+
+@media (max-width: 640px) {
+  .legal-header { padding: 0 1.25rem; }
+  .legal-hero { padding: 2.5rem 1.25rem 2rem; }
+  .legal-content { padding: 2.25rem 1.25rem 3rem; }
+  .legal-card { padding: 1.25rem; }
+  .legal-card dl { grid-template-columns: 1fr; gap: 0.15rem; }
+  .legal-card dd { margin-bottom: 0.65rem; }
+}

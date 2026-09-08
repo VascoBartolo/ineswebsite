@@ -959,6 +959,11 @@ export default function BookingPage() {
       <footer className="booking-footer">
         <p>IB Nutrição · Inês Bandarra · Nutricionista Materno-Infantil &amp; Pediátrica</p>
         <p>Ilha Terceira, Açores · <a href="mailto:inesbandarranutricao@gmail.com">inesbandarranutricao@gmail.com</a></p>
+        <p className="booking-footer-legal">
+          <Link to="/politica-de-privacidade">Política de Privacidade</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/termos-e-condicoes">Termos e Condições</Link>
+        </p>
       </footer>
     </div>
   );
