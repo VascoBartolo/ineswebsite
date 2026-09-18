@@ -214,6 +214,11 @@ def get_available_slots(query_date, duration_minutes, all_events, new_location=N
     if holidays_pt.is_holiday(query_date):
         return []
 
+    # A clinic closed on this weekday constrains only presencial bookings naming
+    # it; online and the other clinic keep their usual availability.
+    if is_clinic_closed(query_date, new_location):
+        return []
+
     windows = WORK_WINDOWS.get(query_date.weekday(), [])
     if not windows:
         return []
