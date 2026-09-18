@@ -23,5 +23,9 @@ Dockerfile
 # macOS AppleDouble sidecars. Created whenever this repo is written to on an
 # exFAT volume; the docker build context sender cannot read their xattrs and
 # fails the whole build ("failed to xattr ._foo.py: operation not permitted").
+# Both forms are needed: a bare `._*` only matches at the context root, so the
+# `**/` variant is what catches them in subdirectories.
 ._*
+**/._*
 .DS_Store
+**/.DS_Store
