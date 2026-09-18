@@ -58,6 +58,70 @@ def test_saturday_respects_existing_bookings():
     assert "13:00" in slots
 
 
+MANUS = "Clínica Manus (Angra do Heroísmo)"
+BESSA = "Centro de Psicologia Flávia Bessa (Angra do Heroísmo)"
+
+
+def test_bessa_closed_on_saturday():
+    """Flávia Bessa does not open on Saturdays — no presencial slot is offered."""
+    assert calendar_service.get_available_slots(SATURDAY, 60, [], ("presencial", BESSA)) == []
+
+
+def test_bessa_weekdays_unchanged():
+    """Mon-Fri at Flávia Bessa keeps the normal 16:00-19:00 window."""
+    assert calendar_service.get_available_slots(MONDAY, 60, [], ("presencial", BESSA)) == [
+        "16:00", "16:30", "17:00", "17:30", "18:00",
+    ]
+
+
+def test_saturday_unchanged_for_other_options():
+    """The Saturday closure is scoped to Flávia Bessa only."""
+    full_saturday = ["09:00", "09:30", "10:00", "10:30", "11:00", "13:00", "13:30"]
+    assert calendar_service.get_available_slots(SATURDAY, 60, [], ("presencial", MANUS)) == full_saturday
+    assert calendar_service.get_available_slots(SATURDAY, 60, [], ("online", None)) == full_saturday
+    # No location narrowed yet (clinic not picked): still the full Saturday.
+    assert calendar_service.get_available_slots(SATURDAY, 60, [], None) == full_saturday
+    assert calendar_service.get_available_slots(SATURDAY, 60, [], ("presencial", None)) == full_saturday
+
+
+def test_bessa_matching_tolerates_name_variants():
+    """The clinic is matched by keyword, so accent/spelling variants still close."""
+    for name in ["Centro de Psicologia Flavia Bessa", "flávia bessa", "Bessa"]:
+        assert calendar_service.get_available_slots(SATURDAY, 60, [], ("presencial", name)) == [], name
+
+
+def test_bessa_saturday_rejected_by_booking_endpoint(client):
+    """The closure is enforced server-side, not only hidden in the calendar UI."""
+    res = client.post("/api/bookings", json={
+        "sujeito": "adulto",
+        "tipo_consulta": "consulta na gravidez",
+        "regime": "presencial",
+        "local_consulta": BESSA,
+        "nome": "Teste",
+        "idade": "30",
+        "email": "teste@example.com",
+        "contacto": "912345678",
+        "slot_date": SATURDAY.isoformat(),
+        "slot_time": "09:00",
+        "is_first": False,
+    })
+    assert res.status_code == 409
+    assert res.get_json()["error"] == "slot_unavailable"
+
+
+def test_month_availability_zero_for_bessa_saturdays(client):
+    """Every Saturday of the month shows no availability for Flávia Bessa."""
+    base = date.today().replace(day=1) + timedelta(days=62)
+    params = f"year={base.year}&month={base.month}&duration=60&regime=presencial&local_consulta={BESSA}"
+    days = client.get(f"/api/availability/month?{params}").get_json()["days"]
+    saturdays = [d for d in days if date.fromisoformat(d).weekday() == 5]
+    assert saturdays, "month should contain at least one Saturday"
+    assert all(days[d] == 0 for d in saturdays)
+
+    mondays = [d for d in days if date.fromisoformat(d).weekday() == 0]
+    assert all(days[d] == 5 for d in mondays)
+
+
 def test_month_availability_counts(client):
     """The month endpoint returns a slot count per day, batched in one call."""
     base = date.today().replace(day=1) + timedelta(days=62)  # a fully-future month

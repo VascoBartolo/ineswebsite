@@ -8,7 +8,8 @@
   margin: 0 auto;
   padding: 4rem 2rem;
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  /* brand · navegação · contacto · legal */
+  grid-template-columns: 1.8fr 1fr 1.2fr 1.2fr;
   gap: 3rem;
 }
 
@@ -105,6 +106,17 @@
   display: inline;
   vertical-align: middle;
   color: var(--rose);
+}
+
+@media (max-width: 1024px) {
+  .footer-inner {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2.5rem;
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 768px) {

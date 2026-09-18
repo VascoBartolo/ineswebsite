@@ -9,6 +9,8 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import BookingPage from './pages/BookingPage';
 import AdminPage from './admin/AdminPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsConditions from './pages/TermsConditions';
 
 function HomePage() {
   return (
@@ -33,6 +35,8 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/marcar-consulta" element={<BookingPage />} />
       <Route path="/admin" element={<AdminPage />} />
+      <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
+      <Route path="/termos-e-condicoes" element={<TermsConditions />} />
     </Routes>
   );
 }

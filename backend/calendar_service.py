@@ -55,6 +55,15 @@ _CLINIC_KEYWORDS = [
 ]
 
 
+# Weekdays (Mon=0 … Sun=6) on which a specific clinic does not open, layered on
+# top of the general WORK_WINDOWS. Flávia Bessa is closed on Saturdays, so no
+# presencial slot is ever offered there on a Saturday even though Saturday is a
+# working day for online consultations and for the other clinic.
+CLINIC_CLOSED_WEEKDAYS = {
+    "psicologia_bessa": {5},
+}
+
+
 def _resolve_clinic(name):
     """Map a clinic string to a canonical ID via keyword matching.
 
@@ -66,6 +75,24 @@ def _resolve_clinic(name):
         if any(kw in normalized for kw in keywords):
             return clinic_id
     return normalized
+
+
+def is_clinic_closed(query_date, location):
+    """True when `location` is a presencial booking at a clinic that does not open
+    on this weekday.
+
+    Only constrains the clinic actually named in the request: online consultations
+    and every other clinic keep the general WORK_WINDOWS availability untouched.
+    A presencial request with no clinic chosen yet is not constrained either — the
+    booking flow picks the clinic before the calendar, so that case only arises
+    before the choice is narrowed.
+    """
+    if not location:
+        return False
+    regime, clinic = location
+    if (regime or "").lower() != "presencial" or not clinic:
+        return False
+    return query_date.weekday() in CLINIC_CLOSED_WEEKDAYS.get(_resolve_clinic(clinic), ())
 
 
 def parse_location_from_event(event):
@@ -180,6 +207,9 @@ def get_available_slots(query_date, duration_minutes, all_events, new_location=N
     all_events: list of {start_dt, end_dt, location} dicts (DB + GCal combined)
     new_location: (regime, clinic) tuple for the booking being checked, or None
     """
+    if is_clinic_closed(query_date, new_location):
+        return []
+
     windows = WORK_WINDOWS.get(query_date.weekday(), [])
     if not windows:
         return []
