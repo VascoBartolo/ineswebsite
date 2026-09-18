@@ -1,8 +1,6 @@
 import logging
 import os
 import re
-import secrets
-import string
 from calendar import monthrange
 from datetime import datetime, date, timedelta
 from datetime import time as dt_time
@@ -22,7 +20,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ibnutricao")
 
-from models import db, Booking
+from models import db, Booking, generate_unique_reference
 import calendar_service
 import email_service
 
@@ -154,12 +152,6 @@ def compute_duration(sujeito: str, is_first: bool) -> int:
     if sujeito.lower() == "bebé" and is_first:
         return 90
     return 60
-
-
-def generate_reference() -> str:
-    chars = string.ascii_uppercase + string.digits
-    token = "".join(secrets.choice(chars) for _ in range(8))
-    return f"IB-{token}"
 
 
 def db_busy_intervals_range(start_date, end_date):
@@ -305,10 +297,7 @@ def create_booking():
     if data["slot_time"] not in available:
         return jsonify({"error": "slot_unavailable", "message": "Este horário já não está disponível. Por favor escolha outro."}), 409
 
-    # Unique reference
-    reference = generate_reference()
-    while Booking.query.filter_by(reference=reference).first():
-        reference = generate_reference()
+    reference = generate_unique_reference()
 
     booking = Booking(
         reference=reference,
@@ -325,6 +314,7 @@ def create_booking():
         slot_time=slot_time,
         duration_minutes=duration,
         price=price,
+        is_first=is_first,
         status="pendente",
     )
 

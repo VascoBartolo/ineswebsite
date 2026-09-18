@@ -3,27 +3,9 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'lucide-react';
 import './BookingPage.css';
+import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 
 // ---- Constants ----
-
-const CONSULTATION_TYPES = {
-  adulto: [
-    { id: 'consulta de pré-concepção', label: 'Consulta de Pré-concepção', intro: true },
-    { id: 'consulta na gravidez', label: 'Consulta na Gravidez', intro: false },
-    { id: 'consulta no pós-parto', label: 'Consulta no Pós-Parto', intro: false },
-    { id: 'consulta gestão de peso', label: 'Consulta de Gestão de Peso', intro: false },
-  ],
-  bebé: [
-    { id: 'introdução alimentar', label: 'Introdução Alimentar', intro: true },
-    { id: 'seletividade alimentar', label: 'Seletividade Alimentar', intro: false },
-    { id: 'nutrição pediátrica', label: 'Nutrição Pediátrica', intro: false },
-  ],
-};
-
-const CLINICS = [
-  'Clínica Manus (Angra do Heroísmo)',
-  'Centro de Psicologia Flávia Bessa (Angra do Heroísmo)',
-];
 
 function getPrice(isFirst, regime) {
   if (!regime) return null;

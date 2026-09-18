@@ -1,3 +1,5 @@
+import secrets
+import string
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
@@ -23,6 +25,11 @@ class Booking(db.Model):
     slot_date = db.Column(db.Date, nullable=False, index=True)
     slot_time = db.Column(db.Time, nullable=False)
     duration_minutes = db.Column(db.Integer, nullable=False)
+    # True = primeira consulta, False = consulta de seguimento, NULL = unknown.
+    # Nullable on purpose: bookings taken before this column existed cannot all be
+    # reconstructed — an online adult consultation costs 50€ and lasts 60 min
+    # either way — and writing a guess would be indistinguishable from a fact.
+    is_first = db.Column(db.Boolean)
     price = db.Column(db.Numeric(10, 2), nullable=False)
     # Full booking lifecycle in one field:
     #   pendente   — requested, awaiting the nutritionist's approval. HOLDS the slot,
@@ -50,7 +57,26 @@ class Booking(db.Model):
             "slot_date": self.slot_date.isoformat(),
             "slot_time": self.slot_time.strftime("%H:%M"),
             "duration_minutes": self.duration_minutes,
+            "is_first": self.is_first,
             "price": float(self.price),
             "status": self.status,
             "created_at": self.created_at.isoformat(),
         }
+
+
+def generate_reference() -> str:
+    chars = string.ascii_uppercase + string.digits
+    token = "".join(secrets.choice(chars) for _ in range(8))
+    return f"IB-{token}"
+
+
+def generate_unique_reference() -> str:
+    """A reference no existing booking already holds.
+
+    Lives here rather than in app.py so the public booking form and the admin's
+    manual entry cannot drift into two different reference formats.
+    """
+    reference = generate_reference()
+    while Booking.query.filter_by(reference=reference).first():
+        reference = generate_reference()
+    return reference

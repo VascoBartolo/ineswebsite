@@ -3,7 +3,7 @@ from datetime import date as _date
 from flask import Blueprint, request, jsonify
 
 import auth
-from models import db, Booking
+from models import db, Booking, generate_unique_reference
 import stats as stats_mod
 import calendar_service
 import email_service
@@ -39,6 +39,7 @@ def _booking_admin_dict(b):
     d["idade"] = b.idade
     d["duration_minutes"] = b.duration_minutes
     d["updated_at"] = b.updated_at.isoformat() if b.updated_at else None
+    d["is_first"] = b.is_first
     return d
 
 
@@ -88,7 +89,14 @@ def list_bookings():
             db.func.lower(Booking.reference).like(like),
         ))
 
-    q = q.order_by(Booking.slot_date.desc(), Booking.slot_time.desc())
+    # Date is the only sortable column the table offers; anything else falls back
+    # to it. `id` breaks ties so paging is stable: two bookings sharing a date and
+    # time would otherwise come back in an arbitrary order per query, which can
+    # repeat or skip a row between pages.
+    if request.args.get("order", "desc").lower() == "asc":
+        q = q.order_by(Booking.slot_date.asc(), Booking.slot_time.asc(), Booking.id.asc())
+    else:
+        q = q.order_by(Booking.slot_date.desc(), Booking.slot_time.desc(), Booking.id.desc())
 
     page = max(1, int(request.args.get("page", 1)))
     per_page = min(100, max(1, int(request.args.get("per_page", 30))))
@@ -173,6 +181,113 @@ EDITABLE_FIELDS = {
 }
 
 
+# Everything the admin must supply to create a booking by hand. `contexto` and
+# `local_consulta` are optional, and `status` defaults below.
+CREATE_REQUIRED = (
+    "nome", "email", "contacto", "idade", "sujeito", "tipo_consulta",
+    "regime", "slot_date", "slot_time", "duration_minutes", "price",
+)
+
+VALID_STATUSES = ("pendente", "confirmado", "revisao", "cancelado")
+
+
+def _parse_is_first(value):
+    """Three-state: True (primeira), False (seguimento), None (not recorded).
+
+    An empty string is the admin leaving the field blank, which must stay NULL
+    rather than collapsing to False — "not recorded" and "seguimento" are
+    different facts.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("true", "1", "primeira")
+
+
+@admin_bp.route("/bookings", methods=["POST"])
+@auth.require_admin
+def create_booking_admin():
+    """Manual entry from the admin table.
+
+    Deliberately skips the availability check the public form runs: she is
+    recording a consultation already agreed with the client, so she must be able
+    to place it on an occupied slot, outside the working windows, or on a
+    feriado. Judging a collision is hers, not the booking rules'.
+    """
+    from datetime import date as d, time as t
+    data = request.get_json(force=True) or {}
+
+    # Emptiness, not falsiness — a price of 0 is a legitimate value.
+    missing = [f for f in CREATE_REQUIRED if data.get(f) in (None, "")]
+    if missing:
+        return jsonify({"error": "missing_fields", "fields": missing}), 400
+
+    try:
+        slot_date = d.fromisoformat(str(data["slot_date"]))
+        hh, mm = str(data["slot_time"]).split(":")[:2]
+        slot_time = t(int(hh), int(mm))
+        duration = int(data["duration_minutes"])
+        price = float(data["price"])
+    except (ValueError, AttributeError, TypeError):
+        return jsonify({"error": "invalid_fields"}), 400
+
+    status = data.get("status") or "confirmado"
+    if status not in VALID_STATUSES:
+        return jsonify({"error": "invalid_status"}), 400
+
+    regime = str(data["regime"]).strip()
+    local = (data.get("local_consulta") or "").strip() or None
+    if regime.lower() == "online":
+        local = None
+
+    booking = Booking(
+        reference=generate_unique_reference(),
+        sujeito=str(data["sujeito"]).strip(),
+        tipo_consulta=str(data["tipo_consulta"]).strip(),
+        regime=regime,
+        local_consulta=local,
+        nome=str(data["nome"]).strip(),
+        idade=str(data["idade"]).strip()[:50],
+        email=str(data["email"]).strip().lower(),
+        contacto=str(data["contacto"]).strip(),
+        contexto=(data.get("contexto") or "").strip() or None,
+        slot_date=slot_date,
+        slot_time=slot_time,
+        duration_minutes=duration,
+        price=price,
+        is_first=_parse_is_first(data.get("is_first")),
+        status=status,
+    )
+    db.session.add(booking)
+    db.session.commit()
+
+    partial = []
+    try:
+        _sync_calendar(booking)
+        db.session.commit()
+    except Exception as e:
+        partial.append(f"calendar: {e}")
+    # Silence is the default: a manually entered booking is usually one already
+    # agreed with the client, so notifying is the deliberate choice, not the
+    # accident. (Edit defaults the other way, where a silent change is the
+    # surprise.) The modal always sends the flag explicitly; this governs any
+    # caller that omits it.
+    #
+    # A booking created straight into `revisao` or `cancelado` gets no email
+    # either way: there is no prior request for either message to reply to.
+    if bool(data.get("notify", False)):
+        try:
+            if booking.status == "confirmado":
+                email_service.send_booking_confirmed_client(booking)
+            elif booking.status == "pendente":
+                email_service.send_booking_received_client(booking)
+        except Exception as e:
+            partial.append(f"email: {e}")
+
+    return jsonify({"booking": _booking_admin_dict(booking), "partial_failures": partial}), 201
+
+
 @admin_bp.route("/bookings/<reference>", methods=["PUT"])
 @auth.require_admin
 def edit_booking(reference):
@@ -192,6 +307,8 @@ def edit_booking(reference):
     if "slot_time" in data and data["slot_time"]:
         hh, mm = str(data["slot_time"]).split(":")
         booking.slot_time = t(int(hh), int(mm))
+    if "is_first" in data:
+        booking.is_first = _parse_is_first(data["is_first"])
     if booking.regime and booking.regime.lower() == "online":
         booking.local_consulta = None
 
