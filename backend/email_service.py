@@ -170,7 +170,7 @@ def send_booking_updated_client(booking):
     <p>Para rever, alterar ou cancelar a tua consulta, acede a
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email desta marcação.</p>
-    <p>Se algo não estiver correto, responde a este email ou contacta-nos.</p>
+    <p>Se algo não estiver correto por favor contactar inesbandarranutricao@gmail.com.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
     </div>
     """

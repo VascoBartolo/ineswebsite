@@ -227,6 +227,27 @@
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .modal-note { font-size: .76rem; color: var(--muted); margin: 16px 0 6px; }
 .modal-err { color: var(--red); font-size: .82rem; margin: 12px 0 0; }
+/* Narrower dialog for a confirmation, which has no form grid to fill. */
+.modal.modal-sm { max-width: 420px; }
+
+/* ---------- Toast ---------- */
+/* Fixed to the viewport so it is visible wherever the table is scrolled. */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  z-index: 100; max-width: min(90vw, 460px);
+  padding: 12px 20px; border-radius: 11px; cursor: pointer;
+  font-size: .87rem; font-family: inherit; color: #fff;
+  box-shadow: 0 10px 30px rgba(44, 26, 26, .22);
+  animation: toast-in .18s ease-out;
+}
+.toast-ok  { background: var(--green); }
+.toast-err { background: var(--red); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 /* Cancelar / Voltar sits in the bottom-left corner; everything after it stays
    grouped in the bottom-right. */
