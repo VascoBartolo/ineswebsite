@@ -21,3 +21,13 @@ Thumbs.db
 
 # Brainstorm companion (local only)
 .superpowers/
+
+# Local test environment (scaffolding, not part of the app)
+dev-local/
+website/vite.config.local.mjs
+
+# Claude Code per-machine settings
+.claude/settings.local.json
+
+# macOS AppleDouble sidecars, created when this repo lives on an exFAT volume
+._*
