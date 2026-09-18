@@ -57,16 +57,20 @@ docker buildx build --platform $Platform -t $frontendRef ./website --push
 if ($LASTEXITCODE -ne 0) { throw "frontend build/push failed" }
 
 Section "Verify architecture before deploying"
-# Guards the whole point of this script: refuse to point production at an image
-# ACA cannot execute.
+# The point of this script: refuse to point production at an image ACA cannot run.
+# `az acr manifest show` does NOT expose architecture (it returns empty, which made
+# an earlier version of this check pass without verifying anything). The config blob
+# via `docker manifest inspect -v` does.
 foreach ($ref in @($backendRef, $frontendRef)) {
-    $name = ($ref -split '/')[-1]
-    $arch = (az acr manifest show -r $AcrName -n $name --query "architecture" -o tsv 2>$null)
-    if (-not $arch) {
-        $arch = (az acr manifest show -r $AcrName -n $name --query "manifests[0].platform.architecture" -o tsv 2>$null)
+    $raw = docker manifest inspect -v $ref 2>$null | ConvertFrom-Json
+    if (-not $raw) { throw "could not read the manifest for $ref; refusing to deploy unverified." }
+    if ($raw -is [array]) { $raw = $raw[0] }
+    $arch = $raw.Descriptor.platform.architecture
+    $os   = $raw.Descriptor.platform.os
+    Write-Host "  $ref -> $os/$arch"
+    if ($arch -ne "amd64" -or $os -ne "linux") {
+        throw "$ref is $os/$arch, expected linux/amd64. Refusing to deploy."
     }
-    Write-Host "  $name -> $arch"
-    if ($arch -and $arch -ne "amd64") { throw "$name is '$arch', expected amd64. Refusing to deploy." }
 }
 
 Section "Handing off to deploy-azure.ps1 -SkipBuild"
