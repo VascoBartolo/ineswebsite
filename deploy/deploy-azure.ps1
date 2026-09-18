@@ -38,7 +38,12 @@ param(
     # live apps run `ibnutricao-*` images, while the older `ib-*` repos are stale.
     # Changing these would silently repoint production at an abandoned repo.
     [string]$BackendImage  = "ibnutricao-backend",
-    [string]$FrontendImage = "ibnutricao-frontend"
+    [string]$FrontendImage = "ibnutricao-frontend",
+    # Set when the caller has already built AND pushed both images under $ImageTag.
+    # Used by deploy-azure-macos.ps1, which must cross-build for linux/amd64 because
+    # a plain `docker build` on Apple Silicon produces arm64 images that Container
+    # Apps cannot run. Off by default: behaviour on Windows is unchanged.
+    [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -86,13 +91,17 @@ if (-not $acrExists) {
 # 3. Build images LOCALLY and push (ACR Tasks are blocked on this subscription)
 # ---------------------------------------------------------------------------
 Section "Docker build + push"
-az acr login -n $AcrName                                       # AAD token auth for docker
 $backendRef  = "${acrServer}/${BackendImage}:${ImageTag}"
 $frontendRef = "${acrServer}/${FrontendImage}:${ImageTag}"
-docker build -t $backendRef  ./backend
-docker push  $backendRef
-docker build -t $frontendRef ./website
-docker push  $frontendRef
+if ($SkipBuild) {
+    Write-Host "SkipBuild: using images already pushed as ${ImageTag}." -ForegroundColor Yellow
+} else {
+    az acr login -n $AcrName                                   # AAD token auth for docker
+    docker build -t $backendRef  ./backend
+    docker push  $backendRef
+    docker build -t $frontendRef ./website
+    docker push  $frontendRef
+}
 
 # ---------------------------------------------------------------------------
 # 4. Postgres Flexible Server (Burstable B1ms) + DB + firewall
