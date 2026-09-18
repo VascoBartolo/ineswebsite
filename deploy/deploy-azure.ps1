@@ -14,6 +14,10 @@
 
     First run generates + prints the Postgres admin password — SAVE IT, and pass it back
     with -PgPassword on later runs.
+
+    Image tags default to a timestamp, never a fixed value: `az containerapp update`
+    against an unchanged image reference does not necessarily roll a new revision, so a
+    re-used tag can report success while production keeps serving the old code.
 #>
 
 [CmdletBinding()]
@@ -27,9 +31,14 @@ param(
     [string]$PgAdmin       = "ibadmin",
     [string]$PgDb          = "ibnutricao",
     [string]$PgPassword    = "",                               # blank => generate
-    [string]$ImageTag      = "v1",
+    [string]$ImageTag      = (Get-Date -Format "yyyyMMdd-HHmm"),
     [string]$BackendApp    = "ib-backend",
-    [string]$FrontendApp   = "ib-frontend"
+    [string]$FrontendApp   = "ib-frontend",
+    # ACR repository names. These differ from the Container App names above: the
+    # live apps run `ibnutricao-*` images, while the older `ib-*` repos are stale.
+    # Changing these would silently repoint production at an abandoned repo.
+    [string]$BackendImage  = "ibnutricao-backend",
+    [string]$FrontendImage = "ibnutricao-frontend"
 )
 
 $ErrorActionPreference = "Stop"
@@ -78,10 +87,12 @@ if (-not $acrExists) {
 # ---------------------------------------------------------------------------
 Section "Docker build + push"
 az acr login -n $AcrName                                       # AAD token auth for docker
-docker build -t "${acrServer}/ib-backend:${ImageTag}"  ./backend
-docker push  "${acrServer}/ib-backend:${ImageTag}"
-docker build -t "${acrServer}/ib-frontend:${ImageTag}" ./website
-docker push  "${acrServer}/ib-frontend:${ImageTag}"
+$backendRef  = "${acrServer}/${BackendImage}:${ImageTag}"
+$frontendRef = "${acrServer}/${FrontendImage}:${ImageTag}"
+docker build -t $backendRef  ./backend
+docker push  $backendRef
+docker build -t $frontendRef ./website
+docker push  $frontendRef
 
 # ---------------------------------------------------------------------------
 # 4. Postgres Flexible Server (Burstable B1ms) + DB + firewall
@@ -122,7 +133,7 @@ if (-not $backendExists) {
         throw "Backend app does not exist yet but no Postgres password is known. Re-run with -PgPassword <the DB password> so DATABASE_URL is set correctly."
     }
     az containerapp create --name $BackendApp --resource-group $ResourceGroup --environment $EnvResourceId `
-        --image "${acrServer}/ib-backend:${ImageTag}" --registry-server $acrServer `
+        --image $backendRef --registry-server $acrServer `
         --target-port 5000 --ingress internal --min-replicas 1 --max-replicas 3 --cpu 0.25 --memory 0.5Gi `
         --secrets "database-url=$databaseUrl" "smtp-user=$($cfg['SMTP_USER'])" "smtp-pass=$($cfg['SMTP_PASS'])" "google-b64=$b64" `
         --env-vars `
@@ -143,7 +154,7 @@ if (-not $backendExists) {
         az containerapp secret set -n $BackendApp -g $ResourceGroup `
             --secrets "smtp-user=$($cfg['SMTP_USER'])" "smtp-pass=$($cfg['SMTP_PASS'])" "google-b64=$b64" --only-show-errors | Out-Null
     }
-    az containerapp update -n $BackendApp -g $ResourceGroup --image "${acrServer}/ib-backend:${ImageTag}" --only-show-errors | Out-Null
+    az containerapp update -n $BackendApp -g $ResourceGroup --image $backendRef --only-show-errors | Out-Null
 }
 $backendFqdn = az containerapp show -n $BackendApp -g $ResourceGroup --query "properties.configuration.ingress.fqdn" -o tsv
 
@@ -156,11 +167,11 @@ $backendUrl = "https://$backendFqdn"
 $frontendExists = az containerapp show -n $FrontendApp -g $ResourceGroup --query name -o tsv 2>$null
 if (-not $frontendExists) {
     az containerapp create --name $FrontendApp --resource-group $ResourceGroup --environment $EnvResourceId `
-        --image "${acrServer}/ib-frontend:${ImageTag}" --registry-server $acrServer `
+        --image $frontendRef --registry-server $acrServer `
         --target-port 80 --ingress external --min-replicas 1 --max-replicas 3 --cpu 0.25 --memory 0.5Gi `
         --env-vars "BACKEND_INTERNAL_URL=$backendUrl" --only-show-errors | Out-Null
 } else {
-    az containerapp update -n $FrontendApp -g $ResourceGroup --image "${acrServer}/ib-frontend:${ImageTag}" `
+    az containerapp update -n $FrontendApp -g $ResourceGroup --image $frontendRef `
         --set-env-vars "BACKEND_INTERNAL_URL=$backendUrl" --revision-suffix ("r" + (Get-Date -Format "MMddHHmm")) --only-show-errors | Out-Null
 }
 $frontendFqdn = az containerapp show -n $FrontendApp -g $ResourceGroup --query "properties.configuration.ingress.fqdn" -o tsv

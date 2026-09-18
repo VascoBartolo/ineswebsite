@@ -7,6 +7,29 @@ import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 
 // ---- Constants ----
 
+const CONSULTATION_TYPES = {
+  adulto: [
+    { id: 'consulta de pré-concepção', label: 'Consulta de Pré-concepção', intro: true },
+    { id: 'consulta na gravidez', label: 'Consulta na Gravidez', intro: false },
+    { id: 'consulta no pós-parto', label: 'Consulta no Pós-Parto', intro: false },
+    { id: 'consulta gestão de peso', label: 'Consulta de Gestão de Peso', intro: false },
+  ],
+  bebé: [
+    { id: 'introdução alimentar', label: 'Introdução Alimentar', intro: true },
+    { id: 'seletividade alimentar', label: 'Seletividade Alimentar', intro: false },
+    { id: 'nutrição pediátrica', label: 'Nutrição Pediátrica', intro: false },
+  ],
+};
+
+const CLINICS = [
+  'Clínica Manus (Angra do Heroísmo)',
+  'Centro de Psicologia Flávia Bessa (Angra do Heroísmo)',
+];
+
+// Clinics closed on Saturdays. The backend is the authority (it returns no
+// Saturday slots for these); this only keeps the stated opening hours honest.
+const NO_SATURDAY_CLINICS = ['Centro de Psicologia Flávia Bessa (Angra do Heroísmo)'];
+
 function getPrice(isFirst, regime) {
   if (!regime) return null;
   if (regime.toLowerCase() === 'presencial') return isFirst ? 55 : 50;
@@ -653,7 +676,11 @@ export default function BookingPage() {
                   {step === 3 && (
                     <>
                       <h2 className="form-step-title">Data & Hora</h2>
-                      <p className="form-step-sub">Seg–Sex 16h00–19h00 · Sáb 09h00–12h00 e 13h00–14h30</p>
+                      <p className="form-step-sub">
+                        {NO_SATURDAY_CLINICS.includes(form.localConsulta)
+                          ? 'Seg–Sex 16h00–19h00 · encerrado ao sábado'
+                          : 'Seg–Sex 16h00–19h00 · Sáb 09h00–12h00 e 13h00–14h30'}
+                      </p>
                       <div className="tz-badge">🕐 Horário dos Açores (GMT-1)</div>
 
                       <div className="date-time-layout">
@@ -941,6 +968,11 @@ export default function BookingPage() {
       <footer className="booking-footer">
         <p>IB Nutrição · Inês Bandarra · Nutricionista Materno-Infantil &amp; Pediátrica</p>
         <p>Ilha Terceira, Açores · <a href="mailto:inesbandarranutricao@gmail.com">inesbandarranutricao@gmail.com</a></p>
+        <p className="booking-footer-legal">
+          <Link to="/politica-de-privacidade">Política de Privacidade</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/termos-e-condicoes">Termos e Condições</Link>
+        </p>
       </footer>
     </div>
   );

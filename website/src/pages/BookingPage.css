@@ -1065,3 +1065,23 @@
   .booking-tabs { overflow-x: auto; }
   .booking-tab { font-size: 0.78rem; padding: 0.65rem 1rem; white-space: nowrap; }
 }
+
+/* Legal links in the booking page's own footer. The booking flow is where
+   personal and health data is actually submitted, so the notices must be
+   reachable from it — the home page footer is not rendered on this route. */
+.booking-footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.booking-footer-legal a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+
+.booking-footer-legal a:hover { color: var(--crimson); }
