@@ -25,7 +25,8 @@ export default function BookingsTab() {
   const [order, setOrder] = useState('desc');
   const [toast, setToast] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  const [pendingCancel, setPendingCancel] = useState(null);
+  const [busyAction, setBusyAction] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -56,31 +57,35 @@ export default function BookingsTab() {
     setPage(1);
   };
 
-  const cancel = async (ref) => {
-    if (!confirm(`Cancelar a marcação ${ref}? O cliente será notificado.`)) return;
+  // Cancel and delete differ only in the call and the wording; both confirm in a
+  // dialog, report through a toast, and reload on success.
+  const runAction = async (ref, call, done, failed, clear) => {
+    setBusyAction(true);
     try {
-      await adminApi.cancelBooking(ref);
-      setToast({ message: `Marcação ${ref} cancelada.`, tone: 'ok' });
+      await call(ref);
+      clear(null);
+      setToast({ message: done, tone: 'ok' });
       load();
     } catch {
-      setToast({ message: `Não foi possível cancelar a marcação ${ref}.`, tone: 'err' });
+      setToast({ message: failed, tone: 'err' });
+    } finally {
+      setBusyAction(false);
     }
   };
 
-  const remove = async () => {
-    const ref = pendingDelete;
-    setDeleting(true);
-    try {
-      await adminApi.deleteBooking(ref);
-      setPendingDelete(null);
-      setToast({ message: `Marcação ${ref} eliminada.`, tone: 'ok' });
-      load();
-    } catch {
-      setToast({ message: `Não foi possível eliminar a marcação ${ref}.`, tone: 'err' });
-    } finally {
-      setDeleting(false);
-    }
-  };
+  const cancel = () => runAction(
+    pendingCancel, adminApi.cancelBooking,
+    `Marcação ${pendingCancel} cancelada.`,
+    `Não foi possível cancelar a marcação ${pendingCancel}.`,
+    setPendingCancel,
+  );
+
+  const remove = () => runAction(
+    pendingDelete, adminApi.deleteBooking,
+    `Marcação ${pendingDelete} eliminada.`,
+    `Não foi possível eliminar a marcação ${pendingDelete}.`,
+    setPendingDelete,
+  );
 
   return (
     <div className="tab">
@@ -131,7 +136,7 @@ export default function BookingsTab() {
                 <td data-label="Estado"><span className={`pill ${STATUS_CLS[b.status] || 'ok'}`}>{STATUS_LABEL[b.status] || b.status}</span></td>
                 <td data-label="Ações"><div className="acts">
                   <button className="ic" title="Editar" onClick={() => setEditing(b)}>✎</button>
-                  {b.status !== 'cancelado' && <button className="ic" title="Cancelar" onClick={() => cancel(b.reference)}>⊘</button>}
+                  {b.status !== 'cancelado' && <button className="ic" title="Cancelar" onClick={() => setPendingCancel(b.reference)}>⊘</button>}
                   <button className="ic" title="Eliminar" onClick={() => setPendingDelete(b.reference)}>🗑</button>
                 </div></td>
               </tr>
@@ -178,11 +183,20 @@ export default function BookingsTab() {
           }}
         />
       )}
+      {pendingCancel && (
+        <ConfirmModal
+          title="Cancelar marcação"
+          body={`A marcação ${pendingCancel} será cancelada e o cliente notificado por email.`}
+          confirmLabel="Cancelar marcação" cancelLabel="Voltar" danger busy={busyAction}
+          onConfirm={cancel}
+          onCancel={() => setPendingCancel(null)}
+        />
+      )}
       {pendingDelete && (
         <ConfirmModal
           title="Eliminar marcação"
           body={`A marcação ${pendingDelete} será eliminada permanentemente. Esta ação não pode ser revertida.`}
-          confirmLabel="Eliminar" danger busy={deleting}
+          confirmLabel="Eliminar" danger busy={busyAction}
           onConfirm={remove}
           onCancel={() => setPendingDelete(null)}
         />

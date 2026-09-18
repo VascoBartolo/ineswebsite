@@ -113,7 +113,7 @@ def send_booking_received_client(booking):
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
-    <p> Se houver alguma questão, não hesite em responder a este email: inesbandarranutricao@gmail.com ou contactar-nos.</p>
+    <p>Se houver alguma questão por favor contactar inesbandarranutricao@gmail.com.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
     </div>
@@ -132,7 +132,7 @@ def send_booking_confirmed_client(booking):
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
-    <p> Se houver alguma questão, não hesite em responder a este email: inesbandarranutricao@gmail.com ou contactar-nos.</p>
+    <p>Se houver alguma questão por favor contactar inesbandarranutricao@gmail.com.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
     </div>
@@ -152,7 +152,7 @@ def send_booking_review_client(booking):
     {_booking_detail_block(booking)}
     <p>Se preferir, pode desde já escolher um novo horário em
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
-       ou responder diretamente a este email.</p>
+       ou contactar inesbandarranutricao@gmail.com.</p>
     <p>Pedimos desculpa pelo incómodo e agradecemos a compreensão.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
