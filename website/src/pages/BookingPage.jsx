@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'lucide-react';
 import './BookingPage.css';
+import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 
 // ---- Constants ----
 

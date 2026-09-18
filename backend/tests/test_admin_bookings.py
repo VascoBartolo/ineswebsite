@@ -84,3 +84,50 @@ def test_pagination_per_page_clamped(client, app):
     _auth(client)
     r = client.get("/api/admin/bookings?per_page=999")
     assert r.get_json()["pagination"]["per_page"] == 100
+
+
+def test_list_sorts_by_date_desc_by_default(client, app):
+    from datetime import date, time
+    with app.app_context():
+        make_booking(reference="IB-OLD", slot_date=date(2026, 1, 5), slot_time=time(16, 0))
+        make_booking(reference="IB-MID", slot_date=date(2026, 6, 5), slot_time=time(16, 0))
+        make_booking(reference="IB-NEW", slot_date=date(2026, 9, 5), slot_time=time(16, 0))
+    _auth(client)
+    refs = [b["reference"] for b in client.get("/api/admin/bookings").get_json()["bookings"]]
+    assert refs == ["IB-NEW", "IB-MID", "IB-OLD"]
+
+
+def test_list_sorts_by_date_asc_when_requested(client, app):
+    from datetime import date, time
+    with app.app_context():
+        make_booking(reference="IB-OLD", slot_date=date(2026, 1, 5), slot_time=time(16, 0))
+        make_booking(reference="IB-MID", slot_date=date(2026, 6, 5), slot_time=time(16, 0))
+        make_booking(reference="IB-NEW", slot_date=date(2026, 9, 5), slot_time=time(16, 0))
+    _auth(client)
+    refs = [b["reference"] for b in client.get("/api/admin/bookings?order=asc").get_json()["bookings"]]
+    assert refs == ["IB-OLD", "IB-MID", "IB-NEW"]
+
+
+def test_sort_order_is_stable_across_pages(client, app):
+    """Bookings sharing a date and time must not repeat or vanish between pages."""
+    from datetime import date, time
+    with app.app_context():
+        for i in range(10):
+            make_booking(reference=f"IB-T{i:02d}", slot_date=date(2026, 5, 5), slot_time=time(16, 0))
+    _auth(client)
+    seen = []
+    for page in (1, 2):
+        body = client.get(f"/api/admin/bookings?order=asc&page={page}&per_page=5").get_json()
+        seen += [b["reference"] for b in body["bookings"]]
+    assert len(seen) == 10
+    assert len(set(seen)) == 10
+
+
+def test_unknown_order_value_falls_back_to_desc(client, app):
+    from datetime import date, time
+    with app.app_context():
+        make_booking(reference="IB-OLD", slot_date=date(2026, 1, 5), slot_time=time(16, 0))
+        make_booking(reference="IB-NEW", slot_date=date(2026, 9, 5), slot_time=time(16, 0))
+    _auth(client)
+    refs = [b["reference"] for b in client.get("/api/admin/bookings?order=sideways").get_json()["bookings"]]
+    assert refs == ["IB-NEW", "IB-OLD"]

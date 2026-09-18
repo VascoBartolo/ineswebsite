@@ -4,6 +4,8 @@ import re
 import pytz
 from datetime import datetime, date, time, timedelta
 
+import holidays_pt
+
 logger = logging.getLogger("ibnutricao.calendar")
 
 TIMEZONE = "Atlantic/Azores"
@@ -207,7 +209,9 @@ def get_available_slots(query_date, duration_minutes, all_events, new_location=N
     all_events: list of {start_dt, end_dt, location} dicts (DB + GCal combined)
     new_location: (regime, clinic) tuple for the booking being checked, or None
     """
-    if is_clinic_closed(query_date, new_location):
+    # Feriados close the whole day regardless of regime or clinic, exactly like
+    # Sunday does via an empty WORK_WINDOWS entry.
+    if holidays_pt.is_holiday(query_date):
         return []
 
     windows = WORK_WINDOWS.get(query_date.weekday(), [])

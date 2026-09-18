@@ -19,6 +19,8 @@ export default function BookingsTab() {
   const [pagination, setPagination] = useState({ total: 0, pages: 1, per_page: 30 });
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [order, setOrder] = useState('desc');
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -26,15 +28,23 @@ export default function BookingsTab() {
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'all'));
     params.page = page;
     params.per_page = 30;
+    params.order = order;
     try {
       const result = await adminApi.bookings(params);
       setData(result);
       setPagination(result.pagination || { total: 0, pages: 1, per_page: 30 });
     } finally { setLoading(false); }
-  }, [filters, page]);
+  }, [filters, page, order]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { adminApi.locations().then((r) => setLocations(r.locations)).catch(() => {}); }, []);
+
+  // Sorting is applied server-side, so flipping it has to restart at page 1 —
+  // page 3 of the old order is a different slice of the new one.
+  const toggleOrder = () => {
+    setOrder((o) => (o === 'desc' ? 'asc' : 'desc'));
+    setPage(1);
+  };
 
   const set = (k) => (e) => {
     setFilters((f) => ({ ...f, [k]: e.target.value }));
@@ -71,10 +81,21 @@ export default function BookingsTab() {
         <div className="fld"><label>Até</label><input type="date" value={filters.date_to} onChange={set('date_to')} /></div>
       </div>
 
+      <div className="tbl-actions">
+        <button className="btn-add" onClick={() => setCreating(true)}>+ Nova marcação</button>
+      </div>
+
       <div className="table-wrap">
         <table className="adm-table">
           <thead><tr>
-            <th>Ref.</th><th>Data / Hora</th><th>Cliente</th><th>Consulta</th><th>Regime / Local</th><th>Preço</th><th>Estado</th><th>Ações</th>
+            <th>Ref.</th>
+            <th>
+              <button type="button" className="th-sort" onClick={toggleOrder}
+                      title={order === 'desc' ? 'Mais recentes primeiro' : 'Mais antigas primeiro'}>
+                Data / Hora <span className="th-arrow">{order === 'desc' ? '↓' : '↑'}</span>
+              </button>
+            </th>
+            <th>Cliente</th><th>Consulta</th><th>Regime / Local</th><th>Preço</th><th>Estado</th><th>Ações</th>
           </tr></thead>
           <tbody>
             {data.bookings.map((b) => (
@@ -111,7 +132,8 @@ export default function BookingsTab() {
         </div>
       )}
 
-      {editing && <EditBookingModal booking={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <EditBookingModal booking={editing} locations={locations} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {creating && <EditBookingModal create locations={locations} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); setPage(1); load(); }} />}
     </div>
   );
 }
