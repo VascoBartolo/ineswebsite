@@ -81,6 +81,7 @@ export default function EditBookingModal({ booking, create = false, locations = 
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h3>{create ? 'Nova marcação' : `Editar ${booking.reference}`}</h3>
+        <div className="modal-body">
         <div className="modal-grid">
           {FIELDS.map(([k, label, type]) => (
             <div className="fld" key={k}><label>{label}</label>
@@ -124,6 +125,8 @@ export default function EditBookingModal({ booking, create = false, locations = 
               <option value="pendente">Pendente</option><option value="confirmado">Confirmado</option><option value="revisao">Necessita Alteração</option><option value="cancelado">Cancelado</option>
             </select></div>
         </div>
+        </div>
+        <div className="modal-foot">
         {err && <p className="modal-err">{err}</p>}
         {!askSend ? (
           <>
@@ -151,6 +154,7 @@ export default function EditBookingModal({ booking, create = false, locations = 
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

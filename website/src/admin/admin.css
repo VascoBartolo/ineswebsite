@@ -220,8 +220,25 @@
 }
 .modal {
   background: #fff; border-radius: 16px; padding: 26px; width: 100%; max-width: 560px;
-  max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(44, 26, 26, .3);
+  max-height: 90vh; box-shadow: 0 20px 60px rgba(44, 26, 26, .3);
   font-family: 'Jost', sans-serif;
+  /* Column layout so the form can scroll while the title and the action buttons
+     stay put — previously the whole dialog scrolled and a tall form pushed the
+     buttons out of reach. */
+  display: flex; flex-direction: column;
+}
+/* min-height:0 is required: a flex child defaults to min-height:auto and would
+   refuse to shrink below its content, so nothing would scroll. */
+.modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* Negative margin lets the scrollbar sit against the dialog edge while the
+   fields keep the dialog's padding. */
+.modal-body { margin: 0 -26px; padding: 0 26px; }
+.modal-foot { flex: 0 0 auto; }
+/* Hairline separating the scroll area from the pinned footer, so content that
+   scrolls underneath reads as cut off rather than running into the buttons.
+   Always drawn: CSS cannot tell whether the body is actually overflowing. */
+.modal-body + .modal-foot {
+  border-top: 1px solid var(--line); margin: 0 -26px; padding: 14px 26px 0;
 }
 .modal h3 { font-family: Georgia, serif; font-weight: 400; font-size: 1.2rem; color: var(--dark); margin: 0 0 18px; }
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
