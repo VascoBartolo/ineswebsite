@@ -93,3 +93,46 @@ def test_public_booking_persists_is_first(client, app, monkeypatch):
     with app.app_context():
         b = Booking.query.filter_by(reference=r.get_json()["booking"]["reference"]).first()
         assert b.is_first is False
+
+
+def test_emails_are_complete_html_documents(app, monkeypatch):
+    """Gmail's mobile apps mis-measure a bare fragment and cut the message off
+    part-way down. Every message must be a full document with a viewport."""
+    import email_service as es
+    from models import Booking
+    from datetime import date, time
+
+    sent = []
+
+    class FakeSMTP:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def starttls(self): pass
+        def login(self, *a): pass
+        def sendmail(self, frm, to, raw): sent.append(raw)
+
+    monkeypatch.setattr(es.smtplib, "SMTP", FakeSMTP)
+    monkeypatch.setattr(es, "SMTP_USER", "u")
+    monkeypatch.setattr(es, "SMTP_PASS", "p")
+
+    b = Booking(
+        reference="IB-DOC1", sujeito="Adulto", tipo_consulta="Seguimento", regime="online",
+        nome="Teste", idade="30", email="t@e.pt", contacto="960000000",
+        slot_date=date(2026, 12, 10), slot_time=time(17, 0),
+        duration_minutes=60, price=50, status="cancelado",
+    )
+    with app.app_context():
+        es.send_booking_cancelled_client(b)
+
+    assert sent, "no message was sent"
+    import email as email_mod
+    msg = email_mod.message_from_string(sent[0])
+    assert msg.get("Date"), "Date header is required by RFC 5322"
+    assert msg.get("Message-ID"), "Message-ID keeps separate notifications distinct"
+
+    body = msg.get_payload(0).get_payload(decode=True).decode()
+    assert body.lstrip().startswith("<!DOCTYPE html>")
+    for needed in ("<html", "<head>", "charset", "viewport", "<body", "</body></html>"):
+        assert needed in body, f"missing {needed}"
+    assert body.count("<html") == 1 and body.count("<body") == 1

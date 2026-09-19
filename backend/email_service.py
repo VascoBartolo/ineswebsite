@@ -2,6 +2,7 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formatdate, make_msgid
 
 import logging
 from markupsafe import escape
@@ -42,6 +43,32 @@ def _fmt_idade(booking):
     return f"{escape(val)} {unit}" if val.isdigit() else escape(val)
 
 
+def _document(inner):
+    """Wrap a template fragment in a complete HTML document.
+
+    The templates below are fragments: they start at a bare <div> with no
+    <html>, <head> or <body>. Gmail's mobile apps wrap such a fragment in a
+    document of their own and mis-measure its height, so the message is cut off
+    part-way down and only renders in full once it is reopened and re-laid out.
+    Declaring a real document with a viewport removes that guesswork.
+
+    color-scheme is declared so clients that force dark mode recolour the
+    palette deliberately instead of inverting it themselves.
+    """
+    return (
+        '<!DOCTYPE html>'
+        '<html lang="pt"><head>'
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light dark">'
+        '<meta name="supported-color-schemes" content="light dark">'
+        '</head>'
+        '<body style="margin:0;padding:0;width:100%;background:#FDF7F7;">'
+        f'{inner}'
+        '</body></html>'
+    )
+
+
 def _send(to, subject, html, reply_to=None):
     if not SMTP_USER or not SMTP_PASS:
         logger.info("(no SMTP configured) Would send to %s: %s", to, subject)
@@ -53,7 +80,13 @@ def _send(to, subject, html, reply_to=None):
     if reply_addr:
         msg["Reply-To"] = reply_addr
     msg["Subject"] = subject
-    msg.attach(MIMEText(html, "html"))
+    # RFC 5322 requires Date and expects Message-ID. Without a Message-ID clients
+    # may treat separate notifications as one conversation and fold the parts
+    # they share; without Date the receiving server has to invent one, which
+    # also counts against deliverability.
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain=MAIL_FROM.split("@")[-1] if "@" in MAIL_FROM else None)
+    msg.attach(MIMEText(_document(html), "html", "utf-8"))
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
