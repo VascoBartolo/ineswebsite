@@ -16,7 +16,7 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
 NUTRITIONIST_EMAIL = os.environ.get("NUTRITIONIST_EMAIL", "inesbandarranutricao@gmail.com")
-SITE_URL = os.environ.get("SITE_URL", "https://ibnutricao.pt")
+SITE_URL = os.environ.get("SITE_URL", "https://inesbandarranutricao.com")
 # Display name shown to recipients, and where replies go by default. With a noreply
 # sender (e.g. ibnutricao.noreply@gmail.com) this routes replies to a monitored inbox.
 MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "IB Nutrição")
@@ -88,7 +88,8 @@ def _send(to, subject, html, reply_to=None):
     msg["Message-ID"] = make_msgid(domain=MAIL_FROM.split("@")[-1] if "@" in MAIL_FROM else None)
     msg.attach(MIMEText(_document(html), "html", "utf-8"))
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        # Bounded so a hung SMTP server cannot pin one of the two gunicorn workers.
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.sendmail(MAIL_FROM, to, msg.as_string())
@@ -146,7 +147,7 @@ def send_booking_received_client(booking):
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
-    <p>Se houver alguma questão por favor contactar inesbandarranutricao@gmail.com.</p>
+    <p>Se houver alguma questão por favor contactar {escape(REPLY_TO)}.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
     </div>
@@ -165,7 +166,7 @@ def send_booking_confirmed_client(booking):
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
     <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
-    <p>Se houver alguma questão por favor contactar inesbandarranutricao@gmail.com.</p>
+    <p>Se houver alguma questão por favor contactar {escape(REPLY_TO)}.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
     </div>
@@ -185,7 +186,7 @@ def send_booking_review_client(booking):
     {_booking_detail_block(booking)}
     <p>Se preferir, pode desde já escolher um novo horário em
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
-       ou contactar inesbandarranutricao@gmail.com.</p>
+       ou contactar {escape(REPLY_TO)}.</p>
     <p>Pedimos desculpa pelo incómodo e agradecemos a compreensão.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
@@ -198,12 +199,12 @@ def send_booking_updated_client(booking):
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Atualizada</h2>
     <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
-    <p>Os detalhes da tua consulta foram atualizados. Confirma abaixo os novos dados.</p>
+    <p>Os detalhes da sua consulta foram atualizados. Confirme abaixo os novos dados.</p>
     {_booking_detail_block(booking)}
-    <p>Para rever, alterar ou cancelar a tua consulta, acede a
+    <p>Para verificar, alterar ou cancelar a sua consulta, aceda a
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
-       — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email desta marcação.</p>
-    <p>Se algo não estiver correto por favor contactar inesbandarranutricao@gmail.com.</p>
+       — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
+    <p>Se algo não estiver correto por favor contactar {escape(REPLY_TO)}.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
     </div>
     """

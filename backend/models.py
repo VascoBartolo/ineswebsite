@@ -1,9 +1,14 @@
 import secrets
 import string
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
 
 db = SQLAlchemy()
+
+
+def utcnow():
+    """Naive UTC, matching the existing timezone-less DateTime columns."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Booking(db.Model):
@@ -39,8 +44,8 @@ class Booking(db.Model):
     #   cancelado  — cancelled by the client. Does NOT hold the slot.
     status = db.Column(db.String(20), default="pendente", nullable=False, index=True)
     google_event_id = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     def to_dict(self):
         return {
@@ -62,6 +67,16 @@ class Booking(db.Model):
             "status": self.status,
             "created_at": self.created_at.isoformat(),
         }
+
+
+class LoginAttempt(db.Model):
+    """A failed admin login. Shared by every worker and replica, unlike the
+    in-memory rate limiter. A new table, so db.create_all() creates it on boot."""
+    __tablename__ = "login_attempts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(64), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
 
 
 def generate_reference() -> str:

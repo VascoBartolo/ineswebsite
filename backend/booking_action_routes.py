@@ -10,6 +10,7 @@ happens on the POST from that page. This two-step keeps email-client / anti-malw
 link prefetchers — which issue GETs — from firing the action by accident.
 """
 import logging
+from datetime import datetime
 
 from flask import Blueprint, request, Response
 from markupsafe import escape
@@ -44,7 +45,15 @@ def _page(heading, message, *, accent="#B94448", status=200):
   </div>
 </body>
 </html>"""
-    return Response(html, status=status, mimetype="text/html")
+    resp = Response(html, status=status, mimetype="text/html")
+    # The page carries a live action token: never framed, cached or leaked via Referer.
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'"
+    )
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 def _confirm_form(token, action, booking):
@@ -85,6 +94,20 @@ def _load(token):
     return data, booking
 
 
+def _blocked(booking):
+    """A page explaining why no action is possible on this booking, or None."""
+    ref = escape(booking.reference)
+    if booking.status == "cancelado":
+        return _page("Consulta cancelada",
+                     f"A consulta <strong>{ref}</strong> foi cancelada, "
+                     "pelo que não é possível efetuar esta ação.")
+    if datetime.combine(booking.slot_date, booking.slot_time) < calendar_service.now_azores():
+        return _page("Consulta já realizada",
+                     f"A data da consulta <strong>{ref}</strong> já passou, "
+                     "pelo que não é possível efetuar esta ação.")
+    return None
+
+
 @booking_action_bp.route("/action", methods=["GET"])
 def action_page():
     token = request.args.get("token", "")
@@ -94,10 +117,9 @@ def action_page():
         return _page("Ligação inválida",
                      "Esta ligação é inválida ou expirou. Por favor consulte o email original.",
                      status=400)
-    if booking.status == "cancelado":
-        return _page("Consulta cancelada",
-                     f"A consulta <strong>{escape(booking.reference)}</strong> foi cancelada, "
-                     "pelo que não é possível efetuar esta ação.")
+    blocked = _blocked(booking)
+    if blocked:
+        return blocked
     return _confirm_form(token, data["action"], booking)
 
 
@@ -113,10 +135,9 @@ def action_execute():
 
     action, ref = data["action"], booking.reference
 
-    if booking.status == "cancelado":
-        return _page("Consulta cancelada",
-                     f"A consulta <strong>{escape(ref)}</strong> foi cancelada, "
-                     "pelo que não é possível efetuar esta ação.")
+    blocked = _blocked(booking)
+    if blocked:
+        return blocked
 
     target = "confirmado" if action == "confirm" else "revisao"
 

@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone
 from functools import wraps
 
 from flask import current_app, request, jsonify
@@ -7,7 +8,8 @@ from werkzeug.security import check_password_hash
 
 COOKIE_NAME = "admin_token"
 COOKIE_PATH = "/api/admin"
-TOKEN_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
+TOKEN_MAX_AGE = 60 * 60 * 24 * 7  # 7 days since the last renewal
+TOKEN_RENEW_AFTER = 60 * 60 * 24  # re-issue at most once a day
 _SALT = "ib-admin-session"
 
 # Booking-action links in the nutritionist's email are clicked without a login
@@ -16,7 +18,7 @@ _SALT = "ib-admin-session"
 # authorization: unguessable, tamper-evident and expiring. A distinct salt keeps
 # these tokens from ever being accepted as admin-session cookies.
 _BOOKING_ACTION_SALT = "ib-booking-action"
-BOOKING_ACTION_MAX_AGE = 60 * 60 * 24 * 45  # 45 days
+BOOKING_ACTION_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
 BOOKING_ACTIONS = ("confirm", "revise")
 
 # Small fixed delay on failed logins to blunt brute-force.
@@ -75,6 +77,19 @@ def verify_token(token, max_age=TOKEN_MAX_AGE):
     except (BadSignature, SignatureExpired):
         return False
     return data.get("role") == "admin"
+
+
+def token_needs_renewal(token):
+    """True for a valid admin token issued more than TOKEN_RENEW_AFTER ago."""
+    if not token:
+        return False
+    try:
+        data, issued = _serializer().loads(token, max_age=TOKEN_MAX_AGE, return_timestamp=True)
+    except (BadSignature, SignatureExpired):
+        return False
+    if not isinstance(data, dict) or data.get("role") != "admin":
+        return False
+    return (datetime.now(timezone.utc) - issued).total_seconds() > TOKEN_RENEW_AFTER
 
 
 def require_admin(fn):

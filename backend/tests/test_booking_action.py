@@ -1,7 +1,15 @@
+from datetime import date, timedelta
+
 from conftest import make_booking
 from models import Booking
 import auth
 import booking_action_routes
+
+
+def _booking(**kw):
+    """Actions are refused on past slots, so these bookings sit in the future."""
+    kw.setdefault("slot_date", date.today() + timedelta(days=30))
+    return make_booking(**kw)
 
 
 def _sign(app, ref, action):
@@ -39,7 +47,7 @@ def test_admin_token_not_accepted_as_booking_action(app):
 
 def test_get_landing_shows_confirm_form(client, app):
     with app.app_context():
-        make_booking(reference="IB-A")
+        _booking(reference="IB-A")
     token = _sign(app, "IB-A", "confirm")
     r = client.get(f"/api/bookings/action?token={token}")
     assert r.status_code == 200
@@ -56,7 +64,7 @@ def test_get_landing_invalid_token(client):
 
 def test_get_landing_cancelled_booking(client, app):
     with app.app_context():
-        make_booking(reference="IB-A", status="cancelado")
+        _booking(reference="IB-A", status="cancelado")
     token = _sign(app, "IB-A", "confirm")
     r = client.get(f"/api/bookings/action?token={token}")
     assert r.status_code == 200
@@ -76,7 +84,7 @@ def test_post_confirm_sets_status_and_creates_event(client, app, monkeypatch):
                         lambda b: seen.__setitem__("review", seen["review"] + 1))
     monkeypatch.setattr(booking_action_routes.calendar_service, "create_event", lambda b: "evt-new")
     with app.app_context():
-        make_booking(reference="IB-A", status="pendente", google_event_id=None)
+        _booking(reference="IB-A", status="pendente", google_event_id=None)
     token = _sign(app, "IB-A", "confirm")
     r = client.post("/api/bookings/action", data={"token": token})
     assert r.status_code == 200
@@ -96,7 +104,7 @@ def test_post_revise_sets_status_and_emails(client, app, monkeypatch):
                         "send_booking_review_client",
                         lambda b: seen.__setitem__("review", seen["review"] + 1))
     with app.app_context():
-        make_booking(reference="IB-B", status="pendente", google_event_id=None)
+        _booking(reference="IB-B", status="pendente", google_event_id=None)
     token = _sign(app, "IB-B", "revise")
     r = client.post("/api/bookings/action", data={"token": token})
     assert r.status_code == 200
@@ -112,7 +120,7 @@ def test_post_revise_deletes_calendar_event(client, app, monkeypatch):
     monkeypatch.setattr(booking_action_routes.calendar_service, "delete_event",
                         lambda eid: deleted.__setitem__("n", deleted["n"] + 1))
     with app.app_context():
-        make_booking(reference="IB-D", status="confirmado", google_event_id="evt-existing")
+        _booking(reference="IB-D", status="confirmado", google_event_id="evt-existing")
     token = _sign(app, "IB-D", "revise")
     r = client.post("/api/bookings/action", data={"token": token})
     assert r.status_code == 200
@@ -130,7 +138,7 @@ def test_post_confirm_idempotent(client, app, monkeypatch):
                         lambda b: calls.__setitem__("n", calls["n"] + 1))
     monkeypatch.setattr(booking_action_routes.calendar_service, "create_event", lambda b: "evt-x")
     with app.app_context():
-        make_booking(reference="IB-A", status="pendente", google_event_id=None)
+        _booking(reference="IB-A", status="pendente", google_event_id=None)
     token = _sign(app, "IB-A", "confirm")
     client.post("/api/bookings/action", data={"token": token})
     r2 = client.post("/api/bookings/action", data={"token": token})
@@ -144,13 +152,41 @@ def test_post_invalid_token(client):
     assert r.status_code == 400
 
 
+def test_past_booking_blocked_on_get_and_post(client, app, monkeypatch):
+    calls = {"n": 0}
+    monkeypatch.setattr(booking_action_routes.email_service,
+                        "send_booking_confirmed_client",
+                        lambda b: calls.__setitem__("n", calls["n"] + 1))
+    with app.app_context():
+        make_booking(reference="IB-P", status="pendente",
+                     slot_date=date.today() - timedelta(days=1))
+    token = _sign(app, "IB-P", "confirm")
+    r = client.get(f"/api/bookings/action?token={token}")
+    assert "já passou" in r.get_data(as_text=True)
+    assert "<form" not in r.get_data(as_text=True)
+    r = client.post("/api/bookings/action", data={"token": token})
+    assert "já passou" in r.get_data(as_text=True)
+    assert calls["n"] == 0
+    with app.app_context():
+        assert Booking.query.filter_by(reference="IB-P").first().status == "pendente"
+
+
+def test_expired_action_token_rejected(app):
+    with app.app_context():
+        token = auth.sign_booking_action("IB-A", "confirm")
+        assert auth.verify_booking_action(token, max_age=auth.BOOKING_ACTION_MAX_AGE) is not None
+        __import__("time").sleep(1)
+        assert auth.verify_booking_action(token, max_age=0) is None
+    assert auth.BOOKING_ACTION_MAX_AGE == 7 * 24 * 3600
+
+
 def test_post_cancelled_booking_blocked(client, app, monkeypatch):
     calls = {"n": 0}
     monkeypatch.setattr(booking_action_routes.email_service,
                         "send_booking_confirmed_client",
                         lambda b: calls.__setitem__("n", calls["n"] + 1))
     with app.app_context():
-        make_booking(reference="IB-C", status="cancelado")
+        _booking(reference="IB-C", status="cancelado")
     token = _sign(app, "IB-C", "confirm")
     r = client.post("/api/bookings/action", data={"token": token})
     assert r.status_code == 200
