@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'lucide-react';
 import './BookingPage.css';
 import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
+import {
+  PRACTICE_TZ, practiceOffset, localMinusPractice, fmtUtcOffset, fmtOffsetDiff, shiftTime, slotInstant,
+} from '../utils/practiceTime';
 
 // ---- Constants ----
 
@@ -158,6 +161,30 @@ function CalendarPicker({ selectedDate, onSelect, duration, regime, localConsult
   );
 }
 
+// ---- Time zone note ----
+
+// Slots are practice time. Say so, name the zone and this date's offset, and
+// translate for visitors elsewhere (mainland clients booking online are an hour ahead).
+function TimezoneNote({ dateStr }) {
+  const diff = localMinusPractice(dateStr);
+  return (
+    <div className="tz-note" role="note">
+      <Clock size={16} aria-hidden="true" />
+      <p>
+        <strong>Todos os horários estão na hora dos Açores</strong>{' '}
+        ({PRACTICE_TZ}): {fmtUtcOffset(practiceOffset(dateStr))} {dateStr ? 'nesta data' : 'hoje'}.
+        Os Açores estão em UTC−1 no inverno e UTC+0 no verão.
+        {diff !== 0 && (
+          <span className="tz-note-local">
+            {' '}A sua hora local está {fmtOffsetDiff(diff)} {diff > 0 ? 'à frente' : 'atrás'}:
+            {' '}16:00 nos Açores são {shiftTime('16:00', diff)} para si.
+          </span>
+        )}
+      </p>
+    </div>
+  );
+}
+
 // ---- Step Indicator ----
 
 const STEP_LABELS = ['Consulta', 'Regime', 'Data & Hora', 'Dados Pessoais'];
@@ -190,7 +217,7 @@ function SummaryBar({ form }) {
       <span className="summary-item">{form.tipoConsulta}</span>
       {localLabel && <><span className="summary-sep">·</span><span className="summary-item">{localLabel}</span></>}
       {form.slotDate && (
-        <><span className="summary-sep">·</span><span className="summary-item">{fmtDate(form.slotDate)}{form.slotTime ? ` às ${form.slotTime}` : ''}</span></>
+        <><span className="summary-sep">·</span><span className="summary-item">{fmtDate(form.slotDate)}{form.slotTime ? ` às ${form.slotTime} (hora dos Açores)` : ''}</span></>
       )}
       {price && <span className="summary-price">{price}€ · {fmtDuration(duration)}</span>}
     </div>
@@ -233,8 +260,8 @@ export default function BookingPage() {
   // Booking form state
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(emptyForm);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slots, setSlots] = useState({ key: null, list: [] });
+  const [slotsReload, setSlotsReload] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [formError, setFormError] = useState('');
@@ -256,34 +283,40 @@ export default function BookingPage() {
   const duration = getDuration(form.sujeito, isFirst);
   const consultTypes = form.sujeito ? CONSULTATION_TYPES[form.sujeito] : [];
 
-  useEffect(() => {
-    if (form.slotDate && form.primeiraConsulta && form.regime) {
-      fetchSlots(form.slotDate, getDuration(form.sujeito, form.primeiraConsulta === 'primeira'), form.regime, form.localConsulta);
-    }
-  }, [form.slotDate, form.sujeito, form.primeiraConsulta, form.regime, form.localConsulta]);
+  // Free times for the chosen date and criteria. Keyed on the query so that when
+  // the client clicks through dates quickly, only the latest answer is shown —
+  // the superseded request is aborted and can never land under the wrong date.
+  const slotQuery = form.slotDate && form.primeiraConsulta && form.regime
+    ? new URLSearchParams({
+      date: form.slotDate,
+      duration: String(duration),
+      regime: form.regime,
+      ...(form.localConsulta ? { local_consulta: form.localConsulta } : {}),
+    }).toString()
+    : null;
+  const slotsKey = slotQuery && `${slotQuery}#${slotsReload}`;
 
-  async function fetchSlots(dateStr, dur, regime, localConsulta) {
-    setLoadingSlots(true);
-    setAvailableSlots([]);
-    setForm(prev => ({ ...prev, slotTime: '' }));
-    try {
-      const params = new URLSearchParams({ date: dateStr, duration: dur });
-      if (regime) params.set('regime', regime);
-      if (localConsulta) params.set('local_consulta', localConsulta);
-      const res = await fetch(`/api/availability?${params}`);
-      const data = await res.json();
-      setAvailableSlots(data.slots || []);
-    } catch {
-      setAvailableSlots([]);
-    } finally {
-      setLoadingSlots(false);
-    }
-  }
+  useEffect(() => {
+    if (!slotsKey) return undefined;
+    const ctrl = new AbortController();
+    fetch(`/api/availability?${slotQuery}`, { signal: ctrl.signal })
+      .then(res => res.json())
+      .then(data => setSlots({ key: slotsKey, list: data.slots || [] }))
+      .catch(e => { if (e.name !== 'AbortError') setSlots({ key: slotsKey, list: [] }); });
+    return () => ctrl.abort();
+  }, [slotQuery, slotsKey]);
+
+  const loadingSlots = !!slotsKey && slots.key !== slotsKey;
+  const availableSlots = slotsKey && slots.key === slotsKey ? slots.list : [];
+  // A time picked earlier only counts while it is still offered for the current criteria.
+  const slotChosen = !!form.slotTime && availableSlots.includes(form.slotTime);
+  const localDiff = form.slotDate ? localMinusPractice(form.slotDate) : 0;
+  const lookupIsPast = !!lookupResult && slotInstant(lookupResult.slot_date, lookupResult.slot_time) < new Date();
 
   function canProceed() {
     if (step === 1) return !!(form.sujeito && form.tipoConsulta && form.primeiraConsulta);
     if (step === 2) return !!(form.regime && (form.regime === 'online' || form.localConsulta));
-    if (step === 3) return !!(form.slotDate && form.slotTime);
+    if (step === 3) return !!form.slotDate && slotChosen;
     if (step === 4) return !!(form.nome && form.idade && form.email && form.contacto);
     return false;
   }
@@ -319,7 +352,8 @@ export default function BookingPage() {
         if (data.error === 'slot_unavailable') {
           setFormError('Este horário já não está disponível. Por favor escolha outro.');
           setStep(3);
-          fetchSlots(form.slotDate, duration, form.regime, form.localConsulta);
+          setField('slotTime', '');
+          setSlotsReload(n => n + 1);
         } else {
           setFormError(data.message || 'Erro ao processar a marcação. Tente novamente.');
         }
@@ -431,7 +465,7 @@ export default function BookingPage() {
               <div className="success-row"><span>Consulta</span><strong>{confirmedBooking.tipo_consulta}</strong></div>
               <div className="success-row"><span>Regime</span><strong>{confirmedBooking.regime}{confirmedBooking.local_consulta ? ` — ${confirmedBooking.local_consulta}` : ''}</strong></div>
               <div className="success-row"><span>Data</span><strong>{fmtDate(confirmedBooking.slot_date)}</strong></div>
-              <div className="success-row"><span>Hora</span><strong>{confirmedBooking.slot_time}</strong></div>
+              <div className="success-row"><span>Hora</span><strong>{confirmedBooking.slot_time} (hora dos Açores)</strong></div>
               <div className="success-row"><span>Duração</span><strong>{fmtDuration(confirmedBooking.duration_minutes)}</strong></div>
               <div className="success-row"><span>Preço</span><strong>{confirmedBooking.price}€</strong></div>
             </div>
@@ -657,14 +691,14 @@ export default function BookingPage() {
                           ? 'Seg–Sex 16h00–19h00 · encerrado ao sábado'
                           : 'Seg–Sex 16h00–19h00 · Sáb 09h00–12h00 e 13h00–14h30'}
                       </p>
-                      <div className="tz-badge">🕐 Horário dos Açores (GMT-1)</div>
+                      <TimezoneNote dateStr={form.slotDate} />
 
                       <div className="date-time-layout">
                         <div className="form-section">
                           <p className="field-label">Escolha uma data</p>
                           <CalendarPicker
                             selectedDate={form.slotDate}
-                            onSelect={d => setField('slotDate', d)}
+                            onSelect={d => setForm(prev => ({ ...prev, slotDate: d, slotTime: '' }))}
                             duration={duration}
                             regime={form.regime}
                             localConsulta={form.localConsulta}
@@ -699,6 +733,7 @@ export default function BookingPage() {
                                   onClick={() => setField('slotTime', slot)}
                                 >
                                   {slot}
+                                  {localDiff !== 0 && <span className="slot-local">{shiftTime(slot, localDiff)} para si</span>}
                                 </button>
                               ))}
                             </div>
@@ -727,6 +762,7 @@ export default function BookingPage() {
                             value={form.nome}
                             onChange={e => setField('nome', e.target.value)}
                             placeholder="Nome e apelido"
+                            maxLength={200}
                           />
                         </div>
                         <div className="p-field">
@@ -746,6 +782,7 @@ export default function BookingPage() {
                             value={form.email}
                             onChange={e => setField('email', e.target.value)}
                             placeholder="O teu email"
+                            maxLength={200}
                           />
                         </div>
                         <div className="p-field">
@@ -755,6 +792,7 @@ export default function BookingPage() {
                             value={form.contacto}
                             onChange={e => setField('contacto', e.target.value)}
                             placeholder="+351 9XX XXX XXX"
+                            maxLength={50}
                           />
                         </div>
                         <div className="p-field full-width">
@@ -764,13 +802,14 @@ export default function BookingPage() {
                             onChange={e => setField('contexto', e.target.value)}
                             placeholder="Descreva brevemente o motivo da consulta, dúvidas ou informações relevantes..."
                             rows={4}
+                            maxLength={2000}
                           />
                         </div>
                       </div>
-
-                      {formError && <div className="form-error-msg">{formError}</div>}
                     </>
                   )}
+
+                  {formError && <div className="form-error-msg">{formError}</div>}
 
                 </motion.div>
               </AnimatePresence>
@@ -778,7 +817,7 @@ export default function BookingPage() {
               {/* Navigation */}
               <div className="form-nav">
                 {step > 1 && (
-                  <button type="button" className="btn-secondary" onClick={() => setStep(s => s - 1)}>
+                  <button type="button" className="btn-secondary" onClick={() => { setFormError(''); setStep(s => s - 1); }}>
                     ← Anterior
                   </button>
                 )}
@@ -857,7 +896,7 @@ export default function BookingPage() {
                       <div className="lr-row"><span>Consulta</span><strong>{lookupResult.tipo_consulta}</strong></div>
                       <div className="lr-row"><span>Regime</span><strong>{lookupResult.regime}{lookupResult.local_consulta ? ` — ${lookupResult.local_consulta}` : ''}</strong></div>
                       <div className="lr-row"><span>Data</span><strong>{fmtDate(lookupResult.slot_date)}</strong></div>
-                      <div className="lr-row"><span>Hora</span><strong>{lookupResult.slot_time}</strong></div>
+                      <div className="lr-row"><span>Hora</span><strong>{lookupResult.slot_time} (hora dos Açores)</strong></div>
                       <div className="lr-row"><span>Duração</span><strong>{fmtDuration(lookupResult.duration_minutes)}</strong></div>
                       <div className="lr-row"><span>Preço</span><strong>{lookupResult.price}€</strong></div>
                     </div>
@@ -869,7 +908,7 @@ export default function BookingPage() {
                       </div>
                     )}
 
-                    {(lookupResult.status === 'confirmado' || lookupResult.status === 'pendente') && !cancelConfirm && !editMode && !editSent && (
+                    {(lookupResult.status === 'confirmado' || lookupResult.status === 'pendente') && !lookupIsPast && !cancelConfirm && !editMode && !editSent && (
                       <div className="lr-actions">
                         <button className="btn-outline" onClick={() => setEditMode(true)}>
                           Pedir Alteração
@@ -904,6 +943,7 @@ export default function BookingPage() {
                             onChange={e => setEditMessage(e.target.value)}
                             placeholder="Ex: Gostaria de alterar para a semana seguinte, de preferência quarta-feira..."
                             rows={3}
+                            maxLength={2000}
                             required
                           />
                         </div>
