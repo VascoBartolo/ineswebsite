@@ -106,6 +106,25 @@ def test_client_emails_use_formal_register_and_configured_contact(app, monkeypat
         assert informal not in html
 
 
+@pytest.mark.parametrize("slot_date, expected", [
+    (date(2026, 12, 10), "17:00 (hora dos Açores, UTC−1)"),  # winter
+    (date(2026, 7, 15), "17:00 (hora dos Açores, UTC+0)"),   # summer
+    (date(2026, 10, 25), "17:00 (hora dos Açores, UTC−1)"),  # day summer time ends
+])
+def test_booking_time_names_the_azores_zone_and_offset(slot_date, expected):
+    b = _booking()
+    b.slot_date = slot_date
+    assert es._fmt_time(b) == expected
+
+
+def test_confirmation_email_states_azores_time(app, monkeypatch):
+    sent = []
+    monkeypatch.setattr(es, "_send", lambda to, subject, html, reply_to=None: sent.append(html))
+    with app.app_context():
+        es.send_booking_confirmed_client(_booking())
+    assert "17:00 (hora dos Açores, UTC−1)" in sent[0]
+
+
 def test_smtp_connection_has_a_timeout(app, monkeypatch):
     seen = {}
 
