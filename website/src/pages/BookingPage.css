@@ -486,9 +486,21 @@
   justify-content: center;
   gap: 2px;
   min-height: 42px;
+  /* Day cells are <button>s; drop the native button chrome. */
+  border: none;
+  background: none;
+  font-family: inherit;
+  width: 100%;
+}
+
+.cal-cell:focus-visible {
+  outline: 2px solid var(--crimson);
+  outline-offset: 1px;
 }
 
 .cal-cell.cal-empty { cursor: default; }
+
+.form-step-title:focus { outline: none; }
 
 .cal-cell.cal-available:hover {
   background: var(--blush);

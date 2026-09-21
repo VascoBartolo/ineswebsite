@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'lucide-react';
@@ -125,30 +125,36 @@ function CalendarPicker({ selectedDate, onSelect, duration, regime, localConsult
   return (
     <div className="cal-picker">
       <div className="cal-header">
-        <button className="cal-nav" onClick={prevMonth} type="button" disabled={!canGoPrev()}>‹</button>
-        <span className="cal-month-label">{MONTH_NAMES[viewMonth]} {viewYear}</span>
-        <button className="cal-nav" onClick={nextMonth} type="button">›</button>
+        <button className="cal-nav" onClick={prevMonth} type="button" disabled={!canGoPrev()} aria-label="Mês anterior">‹</button>
+        <span className="cal-month-label" aria-live="polite">{MONTH_NAMES[viewMonth]} {viewYear}</span>
+        <button className="cal-nav" onClick={nextMonth} type="button" aria-label="Mês seguinte">›</button>
       </div>
       <div className="cal-grid">
-        {DAY_NAMES_SHORT.map(d => <div key={d} className="cal-day-header">{d}</div>)}
+        {DAY_NAMES_SHORT.map(d => <div key={d} className="cal-day-header" aria-hidden="true">{d}</div>)}
         {cells.map((d, i) => {
-          const count = d ? slotsFor(d) : null;
-          const available = !!d && !isPast(d) && count > 0;
+          if (!d) return <div key={`empty-${i}`} className="cal-cell cal-empty" aria-hidden="true" />;
+          const iso = toISO(d);
+          const count = slotsFor(d);
+          const available = !isPast(d) && count > 0;
+          const vagas = count === null ? 'a carregar' : available ? `${count} ${count === 1 ? 'vaga' : 'vagas'}` : 'sem vagas';
           return (
-            <div
-              key={i}
+            <button
+              type="button"
+              key={iso}
               className={[
                 'cal-cell',
-                !d ? 'cal-empty' : '',
                 available ? 'cal-available' : 'cal-disabled',
-                d && isSel(d) ? 'cal-selected' : '',
-                d && isTdy(d) && !isSel(d) ? 'cal-today' : '',
+                isSel(d) ? 'cal-selected' : '',
+                isTdy(d) && !isSel(d) ? 'cal-today' : '',
               ].join(' ').trim()}
-              onClick={() => available && onSelect(toISO(d))}
+              disabled={!available}
+              aria-pressed={!!isSel(d)}
+              aria-label={`${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} de ${MONTH_NAMES[d.getMonth()].toLowerCase()}, ${vagas}`}
+              onClick={() => onSelect(iso)}
             >
-              {d ? d.getDate() : ''}
-              {available && <span className="cal-slots">{count}</span>}
-            </div>
+              {d.getDate()}
+              {available && <span className="cal-slots" aria-hidden="true">{count}</span>}
+            </button>
           );
         })}
       </div>
@@ -265,6 +271,20 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [formError, setFormError] = useState('');
+  // Set when the client moves between steps, so the new step's heading takes
+  // focus and screen readers announce where they are.
+  const focusStepTitle = useRef(false);
+  const stepTitleRef = useCallback(el => {
+    if (el && focusStepTitle.current) {
+      focusStepTitle.current = false;
+      el.focus();
+    }
+  }, []);
+  const goToStep = next => {
+    setFormError('');
+    focusStepTitle.current = true;
+    setStep(next);
+  };
 
   // Lookup state
   const [lookupRef, setLookupRef] = useState(deepLink.ref);
@@ -350,8 +370,8 @@ export default function BookingPage() {
       const data = await res.json();
       if (!res.ok) {
         if (data.error === 'slot_unavailable') {
+          goToStep(3);
           setFormError('Este horário já não está disponível. Por favor escolha outro.');
-          setStep(3);
           setField('slotTime', '');
           setSlotsReload(n => n + 1);
         } else {
@@ -361,7 +381,7 @@ export default function BookingPage() {
         setConfirmedBooking(data.booking);
       }
     } catch {
-      setFormError('Erro de ligação. Verifica a tua conexão e tenta novamente.');
+      setFormError('Erro de ligação. Verifique a sua conexão e tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -452,9 +472,9 @@ export default function BookingPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="success-check">✓</div>
+            <div className="success-check" aria-hidden="true">✓</div>
             <h2 className="success-title">Consulta Marcada!</h2>
-            <p className="success-subtitle">Receberás uma confirmação no teu email em breve.</p>
+            <p className="success-subtitle">Receberá uma confirmação no seu email em breve.</p>
 
             <div className="success-ref-box">
               <span className="success-ref-label">Referência da consulta</span>
@@ -471,7 +491,7 @@ export default function BookingPage() {
             </div>
 
             <p className="success-note">
-              Guarda a referência <strong>{confirmedBooking.reference}</strong> — é necessária para consultares ou alterares a tua marcação.
+              Guarde a referência <strong>{confirmedBooking.reference}</strong> — é necessária para consultar ou alterar a sua marcação.
             </p>
 
             <div className="success-actions">
@@ -507,11 +527,13 @@ export default function BookingPage() {
       </div>
 
       <div className="booking-container">
-        <div className="booking-tabs">
-          <button className={`booking-tab ${activeTab === 'nova' ? 'active' : ''}`} onClick={() => setActiveTab('nova')}>
+        <div className="booking-tabs" role="tablist" aria-label="Marcações">
+          <button type="button" role="tab" id="tab-nova" aria-selected={activeTab === 'nova'} aria-controls="booking-panel"
+                  className={`booking-tab ${activeTab === 'nova' ? 'active' : ''}`} onClick={() => setActiveTab('nova')}>
             Nova Marcação
           </button>
-          <button className={`booking-tab ${activeTab === 'verificar' ? 'active' : ''}`} onClick={() => setActiveTab('verificar')}>
+          <button type="button" role="tab" id="tab-verificar" aria-selected={activeTab === 'verificar'} aria-controls="booking-panel"
+                  className={`booking-tab ${activeTab === 'verificar' ? 'active' : ''}`} onClick={() => setActiveTab('verificar')}>
             Verificar / Cancelar
           </button>
         </div>
@@ -520,7 +542,7 @@ export default function BookingPage() {
           {activeTab === 'nova' ? (
 
             // ======= BOOKING FORM =======
-            <motion.div key="nova" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="nova" id="booking-panel" role="tabpanel" aria-labelledby="tab-nova" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <StepIndicator current={step} total={TOTAL_STEPS} />
 
               <AnimatePresence mode="wait">
@@ -536,14 +558,15 @@ export default function BookingPage() {
                   {/* ---- STEP 1: Consulta ---- */}
                   {step === 1 && (
                     <>
-                      <h2 className="form-step-title">Sobre a Consulta</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Sobre a Consulta</h2>
 
                       <div className="form-section">
-                        <p className="field-label">Para quem é a consulta?</p>
-                        <div className="choice-cards">
+                        <p className="field-label" id="lbl-sujeito">Para quem é a consulta?</p>
+                        <div className="choice-cards" role="group" aria-labelledby="lbl-sujeito">
                           <button
                             type="button"
                             className={`choice-card ${form.sujeito === 'adulto' ? 'selected' : ''}`}
+                            aria-pressed={form.sujeito === 'adulto'}
                             onClick={() => { setField('sujeito', 'adulto'); setField('tipoConsulta', ''); }}
                           >
                             <User size={28} strokeWidth={1.5} />
@@ -552,9 +575,10 @@ export default function BookingPage() {
                           <button
                             type="button"
                             className={`choice-card ${form.sujeito === 'bebé' ? 'selected' : ''}`}
+                            aria-pressed={form.sujeito === 'bebé'}
                             onClick={() => { setField('sujeito', 'bebé'); setField('tipoConsulta', ''); }}
                           >
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3"/><path d="M8 14s-3 0-3 3v1h14v-1c0-3-3-3-3-3H8z"/><path d="M9 8c0 0-.5-2 1-3 1-1 3-.5 3-.5"/></svg>
+                            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3"/><path d="M8 14s-3 0-3 3v1h14v-1c0-3-3-3-3-3H8z"/><path d="M9 8c0 0-.5-2 1-3 1-1 3-.5 3-.5"/></svg>
                             <span className="choice-label">Bebé/Criança</span>
                           </button>
                         </div>
@@ -562,8 +586,8 @@ export default function BookingPage() {
 
                       {form.sujeito && (
                         <motion.div className="form-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <p className="field-label">Tipo de consulta</p>
-                          <div className="radio-list">
+                          <p className="field-label" id="lbl-tipo">Tipo de consulta</p>
+                          <div className="radio-list" role="radiogroup" aria-labelledby="lbl-tipo">
                             {consultTypes.map(t => (
                               <label key={t.id} className={`radio-item ${form.tipoConsulta === t.id ? 'selected' : ''}`}>
                                 <input
@@ -582,11 +606,12 @@ export default function BookingPage() {
 
                       {form.tipoConsulta && (
                         <motion.div className="form-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <p className="field-label">É uma primeira consulta ou consulta de seguimento?</p>
-                          <div className="choice-cards">
+                          <p className="field-label" id="lbl-primeira">É uma primeira consulta ou consulta de seguimento?</p>
+                          <div className="choice-cards" role="group" aria-labelledby="lbl-primeira">
                             <button
                               type="button"
                               className={`choice-card ${form.primeiraConsulta === 'primeira' ? 'selected' : ''}`}
+                            aria-pressed={form.primeiraConsulta === 'primeira'}
                               onClick={() => setField('primeiraConsulta', 'primeira')}
                             >
                               <span className="choice-label">Primeira Consulta</span>
@@ -597,6 +622,7 @@ export default function BookingPage() {
                             <button
                               type="button"
                               className={`choice-card ${form.primeiraConsulta === 'seguimento' ? 'selected' : ''}`}
+                            aria-pressed={form.primeiraConsulta === 'seguimento'}
                               onClick={() => setField('primeiraConsulta', 'seguimento')}
                             >
                               <span className="choice-label">Consulta de Seguimento</span>
@@ -611,14 +637,15 @@ export default function BookingPage() {
                   {/* ---- STEP 2: Regime ---- */}
                   {step === 2 && (
                     <>
-                      <h2 className="form-step-title">Regime & Local</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Regime & Local</h2>
 
                       <div className="form-section">
-                        <p className="field-label">Modo da consulta</p>
-                        <div className="choice-cards">
+                        <p className="field-label" id="lbl-regime">Modo da consulta</p>
+                        <div className="choice-cards" role="group" aria-labelledby="lbl-regime">
                           <button
                             type="button"
                             className={`choice-card ${form.regime === 'presencial' ? 'selected' : ''}`}
+                            aria-pressed={form.regime === 'presencial'}
                             onClick={() => { setField('regime', 'presencial'); setField('localConsulta', ''); }}
                           >
                             <MapPin size={28} strokeWidth={1.5} />
@@ -628,6 +655,7 @@ export default function BookingPage() {
                           <button
                             type="button"
                             className={`choice-card ${form.regime === 'online' ? 'selected' : ''}`}
+                            aria-pressed={form.regime === 'online'}
                             onClick={() => { setField('regime', 'online'); setField('localConsulta', ''); }}
                           >
                             <Monitor size={28} strokeWidth={1.5} />
@@ -639,8 +667,8 @@ export default function BookingPage() {
 
                       {form.regime === 'presencial' && (
                         <motion.div className="form-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <p className="field-label">Escolha a clínica</p>
-                          <div className="radio-list">
+                          <p className="field-label" id="lbl-clinica">Escolha a clínica</p>
+                          <div className="radio-list" role="radiogroup" aria-labelledby="lbl-clinica">
                             {CLINICS.map(c => (
                               <label key={c} className={`radio-item ${form.localConsulta === c ? 'selected' : ''}`}>
                                 <input
@@ -685,7 +713,7 @@ export default function BookingPage() {
                   {/* ---- STEP 3: Date & Time ---- */}
                   {step === 3 && (
                     <>
-                      <h2 className="form-step-title">Data & Hora</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Data & Hora</h2>
                       <p className="form-step-sub">
                         {NO_SATURDAY_CLINICS.includes(form.localConsulta)
                           ? 'Seg–Sex 16h00–19h00 · encerrado ao sábado'
@@ -724,12 +752,13 @@ export default function BookingPage() {
                             </div>
                           )}
                           {form.slotDate && !loadingSlots && availableSlots.length > 0 && (
-                            <div className="slots-grid">
+                            <div className="slots-grid" role="group" aria-label={`Horários disponíveis, hora dos Açores`}>
                               {availableSlots.map(slot => (
                                 <button
                                   key={slot}
                                   type="button"
                                   className={`slot-btn ${form.slotTime === slot ? 'selected' : ''}`}
+                                  aria-pressed={form.slotTime === slot}
                                   onClick={() => setField('slotTime', slot)}
                                 >
                                   {slot}
@@ -751,14 +780,15 @@ export default function BookingPage() {
                   {/* ---- STEP 4: Personal Details ---- */}
                   {step === 4 && (
                     <>
-                      <h2 className="form-step-title">Dados Pessoais</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Dados Pessoais</h2>
                       <SummaryBar form={form} />
 
                       <div className="personal-grid">
                         <div className="p-field">
-                          <label>Nome completo <span className="req">*</span></label>
+                          <label htmlFor="bk-nome">Nome completo <span className="req">*</span></label>
                           <input
                             type="text"
+                            id="bk-nome"
                             value={form.nome}
                             onChange={e => setField('nome', e.target.value)}
                             placeholder="Nome e apelido"
@@ -766,9 +796,10 @@ export default function BookingPage() {
                           />
                         </div>
                         <div className="p-field">
-                          <label>Idade ({form.sujeito === 'bebé' ? 'Meses' : 'Anos'}) <span className="req">*</span></label>
+                          <label htmlFor="bk-idade">Idade ({form.sujeito === 'bebé' ? 'Meses' : 'Anos'}) <span className="req">*</span></label>
                           <input
                             type="text"
+                            id="bk-idade"
                             value={form.idade}
                             onChange={e => setField('idade', e.target.value)}
                             placeholder={form.sujeito === 'bebé' ? 'Ex: 6 meses' : 'Ex: 34'}
@@ -776,19 +807,21 @@ export default function BookingPage() {
                           />
                         </div>
                         <div className="p-field">
-                          <label>Email <span className="req">*</span></label>
+                          <label htmlFor="bk-email">Email <span className="req">*</span></label>
                           <input
                             type="email"
+                            id="bk-email"
                             value={form.email}
                             onChange={e => setField('email', e.target.value)}
-                            placeholder="O teu email"
+                            placeholder="O seu email"
                             maxLength={200}
                           />
                         </div>
                         <div className="p-field">
-                          <label>Contacto telefónico <span className="req">*</span></label>
+                          <label htmlFor="bk-contacto">Contacto telefónico <span className="req">*</span></label>
                           <input
                             type="tel"
+                            id="bk-contacto"
                             value={form.contacto}
                             onChange={e => setField('contacto', e.target.value)}
                             placeholder="+351 9XX XXX XXX"
@@ -796,8 +829,9 @@ export default function BookingPage() {
                           />
                         </div>
                         <div className="p-field full-width">
-                          <label>Contexto sobre a consulta <span className="optional">(opcional)</span></label>
+                          <label htmlFor="bk-contexto">Contexto sobre a consulta <span className="optional">(opcional)</span></label>
                           <textarea
+                            id="bk-contexto"
                             value={form.contexto}
                             onChange={e => setField('contexto', e.target.value)}
                             placeholder="Descreva brevemente o motivo da consulta, dúvidas ou informações relevantes..."
@@ -809,7 +843,7 @@ export default function BookingPage() {
                     </>
                   )}
 
-                  {formError && <div className="form-error-msg">{formError}</div>}
+                  {formError && <div className="form-error-msg" role="alert">{formError}</div>}
 
                 </motion.div>
               </AnimatePresence>
@@ -817,7 +851,7 @@ export default function BookingPage() {
               {/* Navigation */}
               <div className="form-nav">
                 {step > 1 && (
-                  <button type="button" className="btn-secondary" onClick={() => { setFormError(''); setStep(s => s - 1); }}>
+                  <button type="button" className="btn-secondary" onClick={() => goToStep(step - 1)}>
                     ← Anterior
                   </button>
                 )}
@@ -826,7 +860,7 @@ export default function BookingPage() {
                     type="button"
                     className="btn-primary"
                     disabled={!canProceed()}
-                    onClick={() => { setFormError(''); setStep(s => s + 1); }}
+                    onClick={() => goToStep(step + 1)}
                   >
                     Seguinte →
                   </button>
@@ -846,15 +880,16 @@ export default function BookingPage() {
           ) : (
 
             // ======= LOOKUP TAB =======
-            <motion.div key="verificar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="verificar" id="booking-panel" role="tabpanel" aria-labelledby="tab-verificar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="lookup-wrapper">
                 <h2 className="lookup-title">Verificar Marcação</h2>
                 <p className="lookup-sub">Introduza a referência (ex: IB-XXXXXXXX) e o email utilizado na marcação.</p>
 
                 <form className="lookup-form" onSubmit={handleLookup}>
                   <div className="p-field">
-                    <label>Referência</label>
+                    <label htmlFor="lk-ref">Referência</label>
                     <input
+                      id="lk-ref"
                       type="text"
                       value={lookupRef}
                       onChange={e => setLookupRef(e.target.value.toUpperCase())}
@@ -863,8 +898,9 @@ export default function BookingPage() {
                     />
                   </div>
                   <div className="p-field">
-                    <label>Email</label>
+                    <label htmlFor="lk-email">Email</label>
                     <input
+                      id="lk-email"
                       type="email"
                       value={lookupEmail}
                       onChange={e => setLookupEmail(e.target.value)}
@@ -872,7 +908,7 @@ export default function BookingPage() {
                       required
                     />
                   </div>
-                  {lookupError && <div className="form-error-msg">{lookupError}</div>}
+                  {lookupError && <div className="form-error-msg" role="alert">{lookupError}</div>}
                   <button type="submit" className="btn-primary" disabled={lookupLoading}>
                     {lookupLoading ? 'A procurar...' : 'Verificar'}
                   </button>
@@ -937,8 +973,9 @@ export default function BookingPage() {
                       <form className="edit-form" onSubmit={handleEditRequest}>
                         <p className="edit-intro">Descreva a alteração pretendida. A nutricionista entrará em contacto para confirmar.</p>
                         <div className="p-field">
-                          <label>Mensagem</label>
+                          <label htmlFor="lk-mensagem">Mensagem</label>
                           <textarea
+                            id="lk-mensagem"
                             value={editMessage}
                             onChange={e => setEditMessage(e.target.value)}
                             placeholder="Ex: Gostaria de alterar para a semana seguinte, de preferência quarta-feira..."
