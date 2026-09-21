@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'luci
 import './BookingPage.css';
 import SkipLink from '../components/SkipLink';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { ENTITY } from './legalInfo';
 import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 import {
   PRACTICE_TZ, practiceOffset, localMinusPractice, fmtUtcOffset, fmtOffsetDiff, shiftTime, slotInstant,
@@ -1029,7 +1030,7 @@ export default function BookingPage() {
 
       <footer className="booking-footer">
         <p>IB Nutrição · Inês Bandarra · Nutricionista Materno-Infantil &amp; Pediátrica</p>
-        <p>Ilha Terceira, Açores · <a href="mailto:inesbandarranutricao@gmail.com">inesbandarranutricao@gmail.com</a></p>
+        <p>Ilha Terceira, Açores · <a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a></p>
         <p className="booking-footer-legal">
           <Link to="/politica-de-privacidade">Política de Privacidade</Link>
           <span aria-hidden="true">·</span>
