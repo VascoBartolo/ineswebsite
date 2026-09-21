@@ -19,16 +19,18 @@ os.environ["DATABASE_URL"] = "sqlite:///" + _db_path.replace("\\", "/")
 # Set admin config env BEFORE importing app so its module-level reads pick these up.
 os.environ.setdefault("GOOGLE_CREDENTIALS_FILE", "/nonexistent-so-calendar-is-noop")
 os.environ["ADMIN_PASSWORD_HASH"] = generate_password_hash(TEST_PASSWORD)
-os.environ["ADMIN_TOKEN_SECRET"] = "unit-test-secret-key"
+os.environ["ADMIN_TOKEN_SECRET"] = "unit-test-secret-key-at-least-32-chars"
 os.environ["ADMIN_COOKIE_SECURE"] = "false"
 
-from app import app as flask_app  # noqa: E402
+from app import app as flask_app, limiter  # noqa: E402
 from models import db, Booking  # noqa: E402
 
 
 @pytest.fixture
 def app():
     flask_app.config.update(TESTING=True)
+    # Rate-limit counters live in process memory; without a reset they leak across tests.
+    limiter.reset()
     with flask_app.app_context():
         db.create_all()
         yield flask_app

@@ -11,7 +11,10 @@ them from Easter and fails if this table drifts).
 Grouped by who declares them, because that is what decides when a group needs
 revisiting: the national and regional lists are law, OBSERVED is not.
 """
+import logging
 from datetime import date
+
+logger = logging.getLogger("ibnutricao.holidays")
 
 # Feriados nacionais obrigatórios (Lei n.º 7/2009, art. 234.º).
 NATIONAL = {
@@ -89,8 +92,16 @@ HOLIDAYS = {**NATIONAL, **REGIONAL_ACORES, **MUNICIPAL_TERCEIRA, **OBSERVED}
 COVERED_YEARS = (2026, 2027, 2028)
 
 
+_warned_years = set()
+
+
 def is_holiday(query_date):
     """True when the practice is closed all day for a feriado."""
+    year = query_date.year
+    if year not in COVERED_YEARS and year not in _warned_years:
+        _warned_years.add(year)
+        logger.warning("No feriados listed for %s; every day that year counts as a working day. "
+                       "Extend holidays_pt.py.", year)
     return query_date in HOLIDAYS
 
 

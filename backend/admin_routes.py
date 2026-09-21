@@ -1,23 +1,58 @@
 import time
-from datetime import date as _date
+from datetime import timedelta
 from flask import Blueprint, request, jsonify
 
 import auth
-from models import db, Booking, generate_unique_reference
+from models import db, Booking, LoginAttempt, generate_unique_reference, utcnow
 import stats as stats_mod
 import calendar_service
 import email_service
+from validation import (
+    BOOKING_LIMITS, EMAIL_RE, REGIMES, STATUSES,
+    BadInput, choice, date_arg, int_arg, json_body, parse_date, parse_time, too_long,
+)
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 
+@admin_bp.after_request
+def renew_session(response):
+    # Sliding session: active use keeps her signed in; an idle or stolen cookie
+    # lapses TOKEN_MAX_AGE after its last renewal.
+    if (request.endpoint not in ("admin.login", "admin.logout")
+            and auth.token_needs_renewal(request.cookies.get(auth.COOKIE_NAME))):
+        auth.set_auth_cookie(response, auth.issue_token())
+    return response
+
+
+LOGIN_MAX_FAILURES = 10
+LOGIN_WINDOW = timedelta(minutes=15)
+
+
 @admin_bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json(force=True) or {}
-    password = data.get("password") or ""
+    data = json_body()
+    password = data.get("password")
+    if not isinstance(password, str):
+        password = ""
+
+    ip = request.remote_addr or "unknown"
+    now = utcnow()
+    recent = LoginAttempt.query.filter(
+        LoginAttempt.ip == ip, LoginAttempt.created_at >= now - LOGIN_WINDOW).count()
+    if recent >= LOGIN_MAX_FAILURES:
+        return jsonify({"error": "rate_limited",
+                        "message": "Demasiadas tentativas. Tente novamente mais tarde."}), 429
+
     if not auth.verify_password(password):
+        db.session.add(LoginAttempt(ip=ip, created_at=now))
+        LoginAttempt.query.filter(LoginAttempt.created_at < now - timedelta(days=1)).delete()
+        db.session.commit()
         time.sleep(auth.LOGIN_FAIL_DELAY)
         return jsonify({"error": "invalid_credentials"}), 401
+
+    LoginAttempt.query.filter_by(ip=ip).delete()
+    db.session.commit()
     resp = jsonify({"ok": True})
     return auth.set_auth_cookie(resp, auth.issue_token())
 
@@ -64,8 +99,8 @@ def list_bookings():
     regime = request.args.get("regime", "all")
     local = request.args.get("local_consulta", "").strip()
     sujeito = request.args.get("sujeito", "").strip()
-    date_from = request.args.get("date_from", "").strip()
-    date_to = request.args.get("date_to", "").strip()
+    date_from = date_arg("date_from")
+    date_to = date_arg("date_to")
     search = request.args.get("q", "").strip().lower()
 
     if status in ("pendente", "confirmado", "revisao", "cancelado"):
@@ -77,9 +112,9 @@ def list_bookings():
     if sujeito:
         q = q.filter(Booking.sujeito == sujeito)
     if date_from:
-        q = q.filter(Booking.slot_date >= _date.fromisoformat(date_from))
+        q = q.filter(Booking.slot_date >= date_from)
     if date_to:
-        q = q.filter(Booking.slot_date <= _date.fromisoformat(date_to))
+        q = q.filter(Booking.slot_date <= date_to)
     if search:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like = f"%{escaped}%"
@@ -98,8 +133,9 @@ def list_bookings():
     else:
         q = q.order_by(Booking.slot_date.desc(), Booking.slot_time.desc(), Booking.id.desc())
 
-    page = max(1, int(request.args.get("page", 1)))
-    per_page = min(100, max(1, int(request.args.get("per_page", 30))))
+    # Out-of-range numbers are clamped; only non-numbers are rejected.
+    page = max(1, int_arg("page", 1, -10**9, 10**9))
+    per_page = min(100, max(1, int_arg("per_page", 30, -10**9, 10**9)))
     total = q.count()
     rows = q.offset((page - 1) * per_page).limit(per_page).all()
 
@@ -138,8 +174,8 @@ def list_bookings():
 def stats_view():
     regime = request.args.get("regime", "all")
     local = request.args.get("local_consulta", "").strip()
-    date_from = request.args.get("date_from", "").strip()
-    date_to = request.args.get("date_to", "").strip()
+    date_from = date_arg("date_from")
+    date_to = date_arg("date_to")
     group_by = request.args.get("group_by", "week")
     if group_by not in ("day", "week", "month"):
         group_by = "week"
@@ -150,9 +186,9 @@ def stats_view():
     if local:
         q = q.filter(Booking.local_consulta == local)
     if date_from:
-        q = q.filter(Booking.slot_date >= _date.fromisoformat(date_from))
+        q = q.filter(Booking.slot_date >= date_from)
     if date_to:
-        q = q.filter(Booking.slot_date <= _date.fromisoformat(date_to))
+        q = q.filter(Booking.slot_date <= date_to)
 
     rows = [{
         "regime": b.regime, "price": b.price, "status": b.status,
@@ -175,12 +211,6 @@ def locations_view():
     return jsonify({"locations": locs})
 
 
-EDITABLE_FIELDS = {
-    "nome", "email", "contacto", "idade", "sujeito", "tipo_consulta",
-    "regime", "local_consulta", "duration_minutes", "price", "contexto", "status",
-}
-
-
 # Everything the admin must supply to create a booking by hand. `contexto` and
 # `local_consulta` are optional, and `status` defaults below.
 CREATE_REQUIRED = (
@@ -188,7 +218,70 @@ CREATE_REQUIRED = (
     "regime", "slot_date", "slot_time", "duration_minutes", "price",
 )
 
-VALID_STATUSES = ("pendente", "confirmado", "revisao", "cancelado")
+_TEXT_FIELDS = ("nome", "contacto", "sujeito", "tipo_consulta", "regime", "local_consulta", "contexto")
+_OPTIONAL_TEXT = ("local_consulta", "contexto")
+
+
+def _number(value, field, kind, lo, hi):
+    if isinstance(value, bool):
+        raise BadInput(f"invalid_{field}", field)
+    try:
+        n = kind(value.strip() if isinstance(value, str) else value)
+    except (ValueError, TypeError):
+        raise BadInput(f"invalid_{field}", field)
+    if not lo <= n <= hi:
+        raise BadInput(f"invalid_{field}", field)
+    return n
+
+
+def _clean_fields(data):
+    """Validated values for every booking field present (and not null) in `data`.
+
+    Raises BadInput before anything is written, so a rejected edit never
+    half-applies. Looser than the public form on purpose: sujeito, tipo_consulta
+    and local_consulta stay free text — the modal edits sujeito as text, and older
+    bookings hold values the form no longer offers.
+    """
+    present = {k: v for k, v in data.items() if v is not None}
+    out = {}
+    for f in _TEXT_FIELDS:
+        if f not in present:
+            continue
+        if not isinstance(present[f], str):
+            raise BadInput("invalid_field", f)
+        out[f] = present[f].strip() or None
+        if out[f] is None and f not in _OPTIONAL_TEXT:
+            raise BadInput("empty_field", f)
+    if "idade" in present:
+        v = present["idade"]
+        if isinstance(v, bool) or not isinstance(v, (str, int)) or not str(v).strip():
+            raise BadInput("invalid_field", "idade")
+        out["idade"] = str(v).strip()
+    if "email" in present:
+        email = present["email"].strip().lower() if isinstance(present["email"], str) else ""
+        if not EMAIL_RE.match(email):
+            raise BadInput("invalid_email", "email")
+        out["email"] = email
+
+    field = too_long(out, BOOKING_LIMITS)
+    if field:
+        raise BadInput("field_too_long", field)
+    if "regime" in out:
+        choice(out, "regime", REGIMES)
+
+    if "status" in present:
+        if present["status"] not in STATUSES:
+            raise BadInput("invalid_status", "status")
+        out["status"] = present["status"]
+    if "price" in present:
+        out["price"] = _number(present["price"], "price", float, 0, 1000)
+    if "duration_minutes" in present:
+        out["duration_minutes"] = _number(present["duration_minutes"], "duration_minutes", int, 15, 240)
+    if present.get("slot_date"):
+        out["slot_date"] = parse_date(present["slot_date"])
+    if present.get("slot_time"):
+        out["slot_time"] = parse_time(present["slot_time"])
+    return out
 
 
 def _parse_is_first(value):
@@ -215,49 +308,34 @@ def create_booking_admin():
     to place it on an occupied slot, outside the working windows, or on a
     feriado. Judging a collision is hers, not the booking rules'.
     """
-    from datetime import date as d, time as t
-    data = request.get_json(force=True) or {}
+    data = json_body()
 
     # Emptiness, not falsiness — a price of 0 is a legitimate value.
     missing = [f for f in CREATE_REQUIRED if data.get(f) in (None, "")]
     if missing:
         return jsonify({"error": "missing_fields", "fields": missing}), 400
 
-    try:
-        slot_date = d.fromisoformat(str(data["slot_date"]))
-        hh, mm = str(data["slot_time"]).split(":")[:2]
-        slot_time = t(int(hh), int(mm))
-        duration = int(data["duration_minutes"])
-        price = float(data["price"])
-    except (ValueError, AttributeError, TypeError):
-        return jsonify({"error": "invalid_fields"}), 400
-
-    status = data.get("status") or "confirmado"
-    if status not in VALID_STATUSES:
-        return jsonify({"error": "invalid_status"}), 400
-
-    regime = str(data["regime"]).strip()
-    local = (data.get("local_consulta") or "").strip() or None
-    if regime.lower() == "online":
-        local = None
+    fields = _clean_fields({**data, "status": data.get("status") or "confirmado"})
+    if fields["regime"].lower() == "online":
+        fields["local_consulta"] = None
 
     booking = Booking(
         reference=generate_unique_reference(),
-        sujeito=str(data["sujeito"]).strip(),
-        tipo_consulta=str(data["tipo_consulta"]).strip(),
-        regime=regime,
-        local_consulta=local,
-        nome=str(data["nome"]).strip(),
-        idade=str(data["idade"]).strip()[:50],
-        email=str(data["email"]).strip().lower(),
-        contacto=str(data["contacto"]).strip(),
-        contexto=(data.get("contexto") or "").strip() or None,
-        slot_date=slot_date,
-        slot_time=slot_time,
-        duration_minutes=duration,
-        price=price,
+        sujeito=fields["sujeito"],
+        tipo_consulta=fields["tipo_consulta"],
+        regime=fields["regime"],
+        local_consulta=fields.get("local_consulta"),
+        nome=fields["nome"],
+        idade=fields["idade"],
+        email=fields["email"],
+        contacto=fields["contacto"],
+        contexto=fields.get("contexto"),
+        slot_date=fields["slot_date"],
+        slot_time=fields["slot_time"],
+        duration_minutes=fields["duration_minutes"],
+        price=fields["price"],
         is_first=_parse_is_first(data.get("is_first")),
-        status=status,
+        status=fields["status"],
     )
     db.session.add(booking)
     db.session.commit()
@@ -291,22 +369,15 @@ def create_booking_admin():
 @admin_bp.route("/bookings/<reference>", methods=["PUT"])
 @auth.require_admin
 def edit_booking(reference):
-    from datetime import date as d, time as t
     booking = Booking.query.filter_by(reference=reference.upper()).first()
     if not booking:
         return jsonify({"error": "not_found"}), 404
 
-    data = request.get_json(force=True) or {}
+    data = json_body()
     # The admin chooses per-save whether the client is emailed the new details.
     notify = bool(data.get("notify", True))
-    for field in EDITABLE_FIELDS:
-        if field in data and data[field] is not None:
-            setattr(booking, field, data[field])
-    if "slot_date" in data and data["slot_date"]:
-        booking.slot_date = d.fromisoformat(data["slot_date"])
-    if "slot_time" in data and data["slot_time"]:
-        hh, mm = str(data["slot_time"]).split(":")
-        booking.slot_time = t(int(hh), int(mm))
+    for field, value in _clean_fields(data).items():
+        setattr(booking, field, value)
     if "is_first" in data:
         booking.is_first = _parse_is_first(data["is_first"])
     if booking.regime and booking.regime.lower() == "online":
@@ -332,19 +403,22 @@ def edit_booking(reference):
 @admin_bp.route("/bookings/<reference>/cancel", methods=["POST"])
 @auth.require_admin
 def cancel_booking_admin(reference):
-    from datetime import datetime
     booking = Booking.query.filter_by(reference=reference.upper()).first()
     if not booking:
         return jsonify({"error": "not_found"}), 404
     if booking.status == "cancelado":
         return jsonify({"error": "already_cancelled"}), 400
+    # The body is optional; the panel may send {"notify": false}.
+    data = request.get_json(force=True, silent=True)
+    notify = bool(data.get("notify", True)) if isinstance(data, dict) else True
     booking.status = "cancelado"
-    booking.updated_at = datetime.utcnow()
+    booking.updated_at = utcnow()
     db.session.commit()
     if booking.google_event_id:
         calendar_service.delete_event(booking.google_event_id)
-    email_service.send_booking_cancelled_client(booking)
-    email_service.send_nutritionist_cancellation(booking)
+    # No nutritionist email: she cancelled it herself, and that template says the client did.
+    if notify:
+        email_service.send_booking_cancelled_client(booking)
     return jsonify({"booking": _booking_admin_dict(booking)})
 
 

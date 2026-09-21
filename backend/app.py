@@ -1,9 +1,7 @@
 import logging
 import os
-import re
 from calendar import monthrange
 from datetime import datetime, date, timedelta
-from datetime import time as dt_time
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -20,9 +18,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ibnutricao")
 
-from models import db, Booking, generate_unique_reference
+from models import db, Booking, generate_unique_reference, utcnow
 import calendar_service
 import email_service
+from validation import (
+    BOOKING_LIMITS, CLINICS, EMAIL_RE, REGIMES, SUJEITOS, TIPOS_CONSULTA,
+    BadInput, choice, int_arg, json_body, parse_date, parse_time, s, too_long,
+)
 
 load_dotenv()
 
@@ -38,11 +40,9 @@ app = Flask(__name__)
 # left of those three, so this cannot be spoofed.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=3, x_proto=1)
 
-allowed_origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    os.environ.get("FRONTEND_URL", ""),
-]
+allowed_origins = [os.environ.get("FRONTEND_URL", "")]
+if os.environ.get("CORS_ALLOW_LOCALHOST", "false").lower() == "true":
+    allowed_origins += ["http://localhost:5173", "http://localhost:3000"]
 CORS(app, origins=[o for o in allowed_origins if o])
 
 limiter = Limiter(
@@ -64,6 +64,13 @@ app.config["ADMIN_COOKIE_SECURE"] = os.environ.get("ADMIN_COOKIE_SECURE", "true"
 # contact messages are small; 64 KB is generous. Over-limit -> 413.
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
+# An empty secret would sign admin sessions and email action links with a known key.
+for _key in ("ADMIN_TOKEN_SECRET", "ADMIN_PASSWORD_HASH"):
+    if not app.config[_key]:
+        raise RuntimeError(f"{_key} must be set")
+if len(app.config["ADMIN_TOKEN_SECRET"]) < 32:
+    raise RuntimeError("ADMIN_TOKEN_SECRET must be at least 32 characters")
+
 db.init_app(app)
 
 from admin_routes import admin_bp
@@ -82,6 +89,10 @@ limiter.limit("30 per minute")(app.view_functions["booking_action.action_execute
 @app.errorhandler(400)
 def bad_request(e):
     return jsonify({"error": "bad_request"}), 400
+
+@app.errorhandler(BadInput)
+def bad_input(e):
+    return jsonify(e.to_dict()), 400
 
 @app.errorhandler(404)
 def not_found_error(e):
@@ -106,32 +117,15 @@ def internal_error(e):
 
 
 @app.after_request
-def log_request(response):
-    logger.info("%s %s %s %s", request.method, request.path, response.status_code, request.remote_addr)
+def security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
     return response
 
 
-# ---- Validation ----
-
-# Pragmatic email shape check (not full RFC): non-empty local/domain, one @, a dot
-# in the domain. Real deliverability is proven by the confirmation email itself.
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-# Per-field maximum lengths, aligned with the DB columns. Over-limit input is a
-# 400, never a 500 from the database.
-BOOKING_LIMITS = {
-    "sujeito": 20, "tipo_consulta": 100, "regime": 20, "nome": 200,
-    "idade": 50, "email": 200, "contacto": 50, "local_consulta": 100, "contexto": 2000,
-}
-
-
-def _too_long(data, limits):
-    """Return the first field that exceeds its length cap, or None."""
-    for field, limit in limits.items():
-        v = data.get(field)
-        if v is not None and len(str(v).strip()) > limit:
-            return field
-    return None
+@app.after_request
+def log_request(response):
+    logger.info("%s %s %s %s", request.method, request.path, response.status_code, request.remote_addr)
+    return response
 
 
 # ---- Business logic ----
@@ -190,7 +184,7 @@ def health():
 @app.route("/api/availability")
 def availability():
     date_str = request.args.get("date", "").strip()
-    duration = int(request.args.get("duration", 60))
+    duration = int_arg("duration", 60, 30, 180)
     regime = request.args.get("regime", "").strip().lower() or None
     local_consulta = request.args.get("local_consulta", "").strip() or None
 
@@ -202,7 +196,7 @@ def availability():
     except ValueError:
         return jsonify({"error": "invalid date"}), 400
 
-    if query_date < date.today():
+    if query_date < calendar_service.now_azores().date():
         return jsonify({"slots": [], "date": date_str})
 
     new_location = (regime, local_consulta) if regime else None
@@ -218,15 +212,12 @@ def availability_month():
     show availability at a glance. Deliberately batched: ONE Google Calendar
     fetch and ONE DB query for the whole month, not one per day.
     """
-    try:
-        year = int(request.args.get("year", ""))
-        month = int(request.args.get("month", ""))
-    except ValueError:
+    year = int_arg("year", None, 2020, 2100)
+    month = int_arg("month", None, 1, 12)
+    if year is None or month is None:
         return jsonify({"error": "year and month required"}), 400
-    if not 1 <= month <= 12:
-        return jsonify({"error": "invalid month"}), 400
 
-    duration = int(request.args.get("duration", 60))
+    duration = int_arg("duration", 60, 30, 180)
     regime = request.args.get("regime", "").strip().lower() or None
     local_consulta = request.args.get("local_consulta", "").strip() or None
     new_location = (regime, local_consulta) if regime else None
@@ -237,7 +228,7 @@ def availability_month():
     gcal_by_day = calendar_service.get_gcal_events_range(first, last)
     db_by_day = db_busy_intervals_range(first, last)
 
-    today = date.today()
+    today = calendar_service.now_azores().date()
     days = {}
     current = first
     while current <= last:
@@ -256,32 +247,39 @@ def availability_month():
 @app.route("/api/bookings", methods=["POST"])
 @limiter.limit("10 per minute")
 def create_booking():
-    data = request.get_json(force=True) or {}
+    data = json_body()
 
+    idade = data.get("idade")
+    idade = str(idade).strip() if isinstance(idade, (str, int)) and not isinstance(idade, bool) else ""
+    values = {f: s(data, f) for f in ("sujeito", "tipo_consulta", "regime", "nome", "email", "contacto")}
+    values["idade"] = idade
     required = ["sujeito", "tipo_consulta", "regime", "nome", "idade", "email", "contacto", "slot_date", "slot_time"]
-    missing = [f for f in required if not data.get(f)]
+    missing = [f for f in required if not (values[f] if f in values else data.get(f))]
     if missing:
         return jsonify({"error": f"missing fields: {', '.join(missing)}"}), 400
 
-    too_long = _too_long(data, BOOKING_LIMITS)
-    if too_long:
-        return jsonify({"error": "field_too_long", "field": too_long}), 400
-    if not EMAIL_RE.match((data.get("email") or "").strip()):
+    field = too_long(data, BOOKING_LIMITS)
+    if field:
+        return jsonify({"error": "field_too_long", "field": field}), 400
+    if not EMAIL_RE.match(values["email"]):
         return jsonify({"error": "invalid_email", "message": "Email inválido."}), 400
 
-    try:
-        slot_date = date.fromisoformat(data["slot_date"])
-        h, m = data["slot_time"].split(":")
-        slot_time = dt_time(int(h), int(m))
-    except (ValueError, AttributeError):
-        return jsonify({"error": "invalid slot_date or slot_time"}), 400
+    # Price and duration derive from these, so only the options the form offers are accepted.
+    sujeito = choice(data, "sujeito", SUJEITOS)
+    regime = choice(data, "regime", REGIMES)
+    tipo_consulta = choice(data, "tipo_consulta", TIPOS_CONSULTA[sujeito])
+    local_consulta_val = choice(data, "local_consulta", CLINICS) if regime == "presencial" else None
 
-    is_first = bool(data.get("is_first", True))
-    price = compute_price(is_first, data["regime"])
-    duration = compute_duration(data["sujeito"], is_first)
+    is_first = data.get("is_first", True)
+    if not isinstance(is_first, bool):
+        raise BadInput("invalid_is_first", "is_first")
 
-    local_consulta_val = ((data.get("local_consulta") or "").strip() or None) if data["regime"].lower() == "presencial" else None
-    new_location = (data["regime"].lower(), local_consulta_val)
+    slot_date = parse_date(data["slot_date"])
+    slot_time = parse_time(data["slot_time"])
+
+    price = compute_price(is_first, regime)
+    duration = compute_duration(sujeito, is_first)
+    new_location = (regime, local_consulta_val)
 
     # Serialize concurrent bookings for the same day so the availability check and the
     # insert below can't interleave into a double-booking (TOCTOU). Transaction-scoped
@@ -294,22 +292,22 @@ def create_booking():
     # Confirm slot still available
     all_events = db_busy_intervals(slot_date) + calendar_service.get_gcal_events(slot_date)
     available = calendar_service.get_available_slots(slot_date, duration, all_events, new_location)
-    if data["slot_time"] not in available:
+    if slot_time.strftime("%H:%M") not in available:
         return jsonify({"error": "slot_unavailable", "message": "Este horário já não está disponível. Por favor escolha outro."}), 409
 
     reference = generate_unique_reference()
 
     booking = Booking(
         reference=reference,
-        sujeito=data["sujeito"].strip(),
-        tipo_consulta=data["tipo_consulta"].strip(),
-        regime=data["regime"].strip(),
+        sujeito=sujeito,
+        tipo_consulta=tipo_consulta,
+        regime=regime,
         local_consulta=local_consulta_val,
-        nome=data["nome"].strip(),
-        idade=str(data["idade"]).strip()[:50],
-        email=data["email"].strip().lower(),
-        contacto=data["contacto"].strip(),
-        contexto=(data.get("contexto") or "").strip() or None,
+        nome=values["nome"],
+        idade=values["idade"],
+        email=values["email"].lower(),
+        contacto=values["contacto"],
+        contexto=s(data, "contexto") or None,
         slot_date=slot_date,
         slot_time=slot_time,
         duration_minutes=duration,
@@ -337,11 +335,11 @@ def create_booking():
 @app.route("/api/contact", methods=["POST"])
 @limiter.limit("5 per minute")
 def contact():
-    data = request.get_json(force=True) or {}
-    name = (data.get("name") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    subject = (data.get("subject") or "").strip()
-    message = (data.get("message") or "").strip()
+    data = json_body()
+    name = s(data, "name")
+    email = s(data, "email").lower()
+    subject = s(data, "subject")
+    message = s(data, "message")
 
     if not name or not email or not subject or not message:
         return jsonify({"error": "missing fields"}), 400
@@ -350,7 +348,7 @@ def contact():
     if not EMAIL_RE.match(email):
         return jsonify({"error": "invalid_email", "message": "Email inválido."}), 400
 
-    phone = (data.get("phone") or "").strip()[:50]
+    phone = s(data, "phone")[:50]
     email_service.send_contact_message(name, email, phone, subject, message)
     return jsonify({"message": "sent"}), 200
 
@@ -378,8 +376,8 @@ def lookup():
 @app.route("/api/bookings/<reference>/cancel", methods=["PUT"])
 @limiter.limit("20 per minute")
 def cancel_booking(reference):
-    data = request.get_json(force=True) or {}
-    email = data.get("email", "").strip().lower()
+    data = json_body()
+    email = s(data, "email").lower()
 
     booking = Booking.query.filter(
         Booking.reference == reference.upper(),
@@ -392,11 +390,11 @@ def cancel_booking(reference):
         return jsonify({"error": "already_cancelled"}), 400
 
     slot_dt = datetime.combine(booking.slot_date, booking.slot_time)
-    if slot_dt < datetime.utcnow():
+    if slot_dt < calendar_service.now_azores():
         return jsonify({"error": "past_booking", "message": "Não é possível cancelar uma consulta passada."}), 400
 
     booking.status = "cancelado"
-    booking.updated_at = datetime.utcnow()
+    booking.updated_at = utcnow()
     db.session.commit()
 
     if booking.google_event_id:
@@ -411,12 +409,14 @@ def cancel_booking(reference):
 @app.route("/api/bookings/<reference>/edit-request", methods=["PUT"])
 @limiter.limit("20 per minute")
 def edit_request(reference):
-    data = request.get_json(force=True) or {}
-    email = data.get("email", "").strip().lower()
-    message = (data.get("message") or "").strip()
+    data = json_body()
+    email = s(data, "email").lower()
+    message = s(data, "message")
 
     if not message:
         return jsonify({"error": "message required"}), 400
+    if len(message) > 2000:
+        return jsonify({"error": "field_too_long", "field": "message"}), 400
 
     booking = Booking.query.filter(
         Booking.reference == reference.upper(),

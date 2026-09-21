@@ -20,9 +20,25 @@ def test_cancel_sets_status_and_emails(client, app, monkeypatch):
     _auth(client)
     r = client.post("/api/admin/bookings/IB-A/cancel")
     assert r.status_code == 200
-    assert seen == {"client": 1, "nutri": 1, "deleted": 1}
+    # She cancelled it herself; the nutritionist template would say the client did.
+    assert seen == {"client": 1, "nutri": 0, "deleted": 1}
     with app.app_context():
         assert Booking.query.filter_by(reference="IB-A").first().status == "cancelado"
+
+
+def test_cancel_without_notify_sends_nothing(client, app, monkeypatch):
+    sent = []
+    monkeypatch.setattr(admin_routes.calendar_service, "delete_event", lambda eid: None)
+    monkeypatch.setattr(admin_routes.email_service, "send_booking_cancelled_client",
+                        lambda b: sent.append("client"))
+    monkeypatch.setattr(admin_routes.email_service, "send_nutritionist_cancellation",
+                        lambda b: sent.append("nutri"))
+    with app.app_context():
+        make_booking(reference="IB-Q")
+    _auth(client)
+    r = client.post("/api/admin/bookings/IB-Q/cancel", json={"notify": False})
+    assert r.status_code == 200
+    assert sent == []
 
 
 def test_hard_delete_removes_row(client, app, monkeypatch):

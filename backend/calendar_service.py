@@ -27,6 +27,11 @@ SLOT_INTERVAL_MINUTES = 30
 TRAVEL_BUFFER = timedelta(minutes=30)
 
 
+def now_azores():
+    """Wall-clock time at the practice, naive — the frame slot_date/slot_time live in."""
+    return datetime.now(pytz.timezone(TIMEZONE)).replace(tzinfo=None)
+
+
 def _get_service():
     if not os.path.exists(CREDENTIALS_FILE):
         return None
