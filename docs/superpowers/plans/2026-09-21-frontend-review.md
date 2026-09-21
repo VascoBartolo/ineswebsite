@@ -1,6 +1,11 @@
 # Frontend Review & Fix Plan (2026-09-21)
 
-> **Status: DRAFT for review. Nothing is implemented yet.** Answer the open questions at the end first; they change the scope of Tasks 2, 8 and 9.
+> **Status: IMPLEMENTED on `feature/frontend-review`, one commit per task.** Answers: Q1 yes, Q2 delete the scaffold and all unused images, Q3 lucide, Q4 você, Q5 yes, Q6 one commit per task.
+> Changes from the plan:
+> - The time-zone badge became a note giving the Azores offset for the chosen date (UTC−1 winter, UTC+0 summer), plus each slot's local time for visitors in other zones.
+> - Page titles use a `usePageTitle` hook rather than React `<title>`, because index.html's static `<title>` wins.
+> - `baby1`/`baby2` were left as they were: recompressing them made them larger.
+> - **Still open:** wiring `eslint-plugin-jsx-a11y` into `eslint.config.js`, which is blocked by the config-protection hook. The code already passes its recommended rules, except the deliberate `autoFocus` on the admin login.
 >
 > Branch: `feature/frontend-review` (from `main` @ `8947026`).
 > Verify every task with: `cd website && npx eslint . && npx vite build`, plus the browser checks listed in each task.
