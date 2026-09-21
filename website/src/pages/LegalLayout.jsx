@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { ENTITY, LAST_UPDATED, PRACTICE_REGION } from './legalInfo';
 import SkipLink from '../components/SkipLink';
+import { usePageTitle } from '../hooks/usePageTitle';
 import './LegalPage.css';
 
 /**
@@ -11,14 +11,9 @@ import './LegalPage.css';
  * own header/footer instead of the home page's Navbar/Footer.
  */
 export default function LegalLayout({ eyebrow, title, documentTitle, children }) {
-  // These are deep-linked from the footer and from emails, so they must open at
-  // the top and carry their own <title> for the browser tab and for sharing.
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    const previous = document.title;
-    document.title = `${documentTitle} · ${ENTITY.brand}`;
-    return () => { document.title = previous; };
-  }, [documentTitle]);
+  // Deep-linked from the footer and from emails, so each carries its own title
+  // for the browser tab and for sharing. (App's ScrollToTop opens it at the top.)
+  usePageTitle(documentTitle);
 
   return (
     <div className="legal-page">

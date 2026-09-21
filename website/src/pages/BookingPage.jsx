@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'lucide-react';
 import './BookingPage.css';
 import SkipLink from '../components/SkipLink';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 import {
   PRACTICE_TZ, practiceOffset, localMinusPractice, fmtUtcOffset, fmtOffsetDiff, shiftTime, slotInstant,
@@ -261,6 +262,7 @@ function readDeepLink() {
 }
 
 export default function BookingPage() {
+  usePageTitle('Marcar Consulta');
   const [deepLink] = useState(readDeepLink);
   const [activeTab, setActiveTab] = useState(deepLink.verify ? 'verificar' : 'nova');
 
