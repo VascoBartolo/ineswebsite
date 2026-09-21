@@ -216,8 +216,19 @@ const emptyForm = {
   contexto: '',
 };
 
+// Deep-link from emails: /marcar-consulta?tab=verificar&ref=IB-XXXX lands the client
+// on the lookup tab with the reference pre-filled. The email is intentionally NOT
+// carried in the URL (privacy: it would leak into history/logs/referrers) — the
+// client still enters it, which keeps a light verification step.
+function readDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const ref = (params.get('ref') || '').toUpperCase();
+  return { ref, verify: params.get('tab') === 'verificar' || !!ref };
+}
+
 export default function BookingPage() {
-  const [activeTab, setActiveTab] = useState('nova');
+  const [deepLink] = useState(readDeepLink);
+  const [activeTab, setActiveTab] = useState(deepLink.verify ? 'verificar' : 'nova');
 
   // Booking form state
   const [step, setStep] = useState(1);
@@ -229,7 +240,7 @@ export default function BookingPage() {
   const [formError, setFormError] = useState('');
 
   // Lookup state
-  const [lookupRef, setLookupRef] = useState('');
+  const [lookupRef, setLookupRef] = useState(deepLink.ref);
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupResult, setLookupResult] = useState(null);
   const [lookupError, setLookupError] = useState('');
@@ -241,23 +252,7 @@ export default function BookingPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editSent, setEditSent] = useState(false);
 
-  // Deep-link from emails: /marcar-consulta?tab=verificar&ref=IB-XXXX lands the client
-  // on the lookup tab with the reference pre-filled. The email is intentionally NOT
-  // carried in the URL (privacy: it would leak into history/logs/referrers) — the
-  // client still enters it, which keeps a light verification step.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    if (params.get('tab') === 'verificar' || ref) {
-      setActiveTab('verificar');
-    }
-    if (ref) {
-      setLookupRef(ref.toUpperCase());
-    }
-  }, []);
-
   const isFirst = form.primeiraConsulta === 'primeira';
-  const price = getPrice(isFirst, form.regime);
   const duration = getDuration(form.sujeito, isFirst);
   const consultTypes = form.sujeito ? CONSULTATION_TYPES[form.sujeito] : [];
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { adminApi } from './adminApi';
 import EditBookingModal from './EditBookingModal';
 import ConfirmModal from './ConfirmModal';
@@ -14,11 +14,12 @@ function fmtDate(iso) {
 }
 function fmtDur(m) { return m === 90 ? '1h30' : '1h'; }
 
+const EMPTY_RESULT = { bookings: [], summary: {}, pagination: { total: 0, pages: 1, per_page: 30 } };
+
 export default function BookingsTab() {
   const [filters, setFilters] = useState({ q: '', status: 'all', regime: 'all', local_consulta: '', date_from: '', date_to: '' });
-  const [data, setData] = useState({ bookings: [], summary: {} });
+  const [searchQ, setSearchQ] = useState('');
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({ total: 0, pages: 1, per_page: 30 });
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -27,23 +28,44 @@ export default function BookingsTab() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [pendingCancel, setPendingCancel] = useState(null);
   const [busyAction, setBusyAction] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
+  const [loaded, setLoaded] = useState({ key: null, result: EMPTY_RESULT });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'all'));
-    params.page = page;
-    params.per_page = 30;
-    params.order = order;
-    try {
-      const result = await adminApi.bookings(params);
-      setData(result);
-      setPagination(result.pagination || { total: 0, pages: 1, per_page: 30 });
-    } finally { setLoading(false); }
-  }, [filters, page, order]);
+  // Search runs once typing pauses, not on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQ(filters.q), 300);
+    return () => clearTimeout(t);
+  }, [filters.q]);
 
-  useEffect(() => { load(); }, [load]);
+  // Keyed on content, so a keystroke that only changes the not-yet-debounced
+  // search text does not refetch an identical query.
+  const queryKey = JSON.stringify({ ...filters, q: searchQ, page, order });
+  const params = useMemo(() => {
+    const { page: pg, order: ord, ...f } = JSON.parse(queryKey);
+    const active = Object.fromEntries(Object.entries(f).filter(([, v]) => v && v !== 'all'));
+    return { ...active, page: pg, per_page: 30, order: ord };
+  }, [queryKey]);
+  const requestKey = `${queryKey}#${reloadTick}`;
+
+  useEffect(() => {
+    // Aborting the superseded request means a slow, stale response can never
+    // overwrite the results for what is on screen now.
+    const ctrl = new AbortController();
+    adminApi.bookings(params, { signal: ctrl.signal })
+      .then((result) => setLoaded({ key: requestKey, result }))
+      .catch((e) => {
+        if (e.name === 'AbortError') return;
+        setLoaded((l) => ({ ...l, key: requestKey }));
+        setToast({ message: 'Não foi possível carregar as marcações.', tone: 'err' });
+      });
+    return () => ctrl.abort();
+  }, [params, requestKey]);
   useEffect(() => { adminApi.locations().then((r) => setLocations(r.locations)).catch(() => {}); }, []);
+
+  const loading = loaded.key !== requestKey;
+  const data = loaded.result;
+  const pagination = data.pagination || EMPTY_RESULT.pagination;
+  const load = () => setReloadTick((t) => t + 1);
 
   // Sorting is applied server-side, so flipping it has to restart at page 1 —
   // page 3 of the old order is a different slice of the new one.

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { adminApi } from './adminApi';
 import MiniBarChart from './MiniBarChart';
 
@@ -8,18 +8,24 @@ export default function StatsTab() {
   const [filters, setFilters] = useState({ date_from: '', date_to: '', regime: 'all', local_consulta: '', group_by: 'week' });
   const [locations, setLocations] = useState([]);
   const [data, setData] = useState(null);
+  const [error, setError] = useState(false);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    // Only the latest filter change may write state: an older, slower response
+    // must not overwrite the numbers for the filters now on screen.
+    let cancelled = false;
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'all'));
-    if (!params.group_by) params.group_by = filters.group_by;
-    setData(await adminApi.stats({ ...params, group_by: filters.group_by }));
+    adminApi.stats(params)
+      .then((d) => { if (!cancelled) { setData(d); setError(false); } })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
   }, [filters]);
-
-  useEffect(() => { load(); }, [load]);
   useEffect(() => { adminApi.locations().then((r) => setLocations(r.locations)).catch(() => {}); }, []);
 
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
-  if (!data) return <div className="tab">A carregar…</div>;
+  if (!data) {
+    return <div className="tab">{error ? 'Não foi possível carregar as estatísticas.' : 'A carregar…'}</div>;
+  }
 
   return (
     <div className="tab">
