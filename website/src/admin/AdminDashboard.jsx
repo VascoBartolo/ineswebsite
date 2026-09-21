@@ -29,10 +29,15 @@ export default function AdminDashboard({ onLogout }) {
         <button className="admin-logout" onClick={logout}>Terminar sessão</button>
       </header>
 
-      <nav className="admin-tabs">
+      <nav className="admin-tabs" role="tablist" aria-label="Secções do painel">
         {TABS.map((t) => (
           <button
             key={t.id}
+            type="button"
+            role="tab"
+            id={`admin-tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls="admin-panel"
             className={tab === t.id ? 'on' : ''}
             onClick={() => setTab(t.id)}
           >
@@ -40,6 +45,7 @@ export default function AdminDashboard({ onLogout }) {
               <motion.span
                 layoutId="admin-tab-pill"
                 className="tab-pill"
+                aria-hidden="true"
                 transition={{ type: 'spring', stiffness: 420, damping: 34 }}
               />
             )}
@@ -51,6 +57,9 @@ export default function AdminDashboard({ onLogout }) {
       <AnimatePresence mode="wait">
         <motion.div
           key={tab}
+          id="admin-panel"
+          role="tabpanel"
+          aria-labelledby={`admin-tab-${tab}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}

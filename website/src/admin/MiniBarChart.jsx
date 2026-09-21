@@ -10,8 +10,8 @@ export default function MiniBarChart({ series }) {
       <div className="chart-head">
         <h3>Evolução</h3>
         <div className="metric-seg">
-          <button className={metric === 'count' ? 'on' : ''} onClick={() => setMetric('count')}>Nº consultas</button>
-          <button className={metric === 'lucro' ? 'on' : ''} onClick={() => setMetric('lucro')}>Lucro líquido</button>
+          <button type="button" aria-pressed={metric === 'count'} className={metric === 'count' ? 'on' : ''} onClick={() => setMetric('count')}>Nº consultas</button>
+          <button type="button" aria-pressed={metric === 'lucro'} className={metric === 'lucro' ? 'on' : ''} onClick={() => setMetric('lucro')}>Lucro líquido</button>
         </div>
       </div>
       <div className="chart-sub">a mostrar {metric === 'lucro' ? 'lucro líquido (€)' : 'nº de consultas'} por período</div>
@@ -22,7 +22,7 @@ export default function MiniBarChart({ series }) {
             <div className="bar" style={{ height: `${(s[key] / max) * 100}%` }}>
               <b>{metric === 'lucro' ? `${Math.round(s.lucro_liquido)}€` : s.count}</b>
             </div>
-            <small>{s.period.replace('2026-', '').replace('W', 'S')}</small>
+            <small title={s.period}>{s.period.replace(/^\d{4}-/, '').replace('W', 'S')}</small>
           </div>
         ))}
       </div>

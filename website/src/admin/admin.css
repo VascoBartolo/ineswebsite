@@ -83,7 +83,7 @@
 .filters { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 .filters .grow { grid-column: span 2; }
 .fld { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.fld label { font-size: .63rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.fld label, .fld .fld-label { font-size: .63rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .fld input, .fld select {
   padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
   font-size: .85rem; background: #fff; color: var(--dark); font-family: inherit;
@@ -246,13 +246,14 @@
 .modal-err { color: var(--red); font-size: .82rem; margin: 12px 0 0; }
 /* Narrower dialog for a confirmation, which has no form grid to fill. */
 .modal.modal-sm { max-width: 420px; }
+.modal-check { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--dark); margin: 4px 0 0; cursor: pointer; }
 
 /* ---------- Toast ---------- */
 /* Fixed to the viewport so it is visible wherever the table is scrolled. */
 .toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
   z-index: 100; max-width: min(90vw, 460px);
-  padding: 12px 20px; border-radius: 11px; cursor: pointer;
+  padding: 12px 20px; border-radius: 11px;
   font-size: .87rem; font-family: inherit; color: #fff;
   box-shadow: 0 10px 30px rgba(44, 26, 26, .22);
   animation: toast-in .18s ease-out;

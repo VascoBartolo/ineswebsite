@@ -1,12 +1,21 @@
 const BASE = '/api/admin';
 
+// AdminPage registers this so an expired session, hit from any tab or modal,
+// returns to the login screen instead of failing silently.
+let onUnauthorized = null;
+export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
+
 async function req(path, options = {}) {
   const res = await fetch(BASE + path, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
-  if (res.status === 401) throw new Error('unauthorized');
+  if (res.status === 401) {
+    // A wrong password is also a 401; that is the login form's to report.
+    if (path !== '/login') onUnauthorized?.();
+    throw new Error('unauthorized');
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     // Carry the parsed body along: callers need the server's field-level detail
@@ -27,6 +36,6 @@ export const adminApi = {
   stats: (params) => req('/stats?' + new URLSearchParams(params).toString()),
   createBooking: (data) => req('/bookings', { method: 'POST', body: JSON.stringify(data) }),
   editBooking: (ref, data) => req(`/bookings/${ref}`, { method: 'PUT', body: JSON.stringify(data) }),
-  cancelBooking: (ref) => req(`/bookings/${ref}/cancel`, { method: 'POST' }),
+  cancelBooking: (ref, notify = true) => req(`/bookings/${ref}/cancel`, { method: 'POST', body: JSON.stringify({ notify }) }),
   deleteBooking: (ref) => req(`/bookings/${ref}`, { method: 'DELETE' }),
 };

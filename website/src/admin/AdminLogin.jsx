@@ -12,8 +12,12 @@ export default function AdminLogin({ onSuccess }) {
     try {
       await adminApi.login(password);
       onSuccess();
-    } catch {
-      setError('Palavra-passe incorreta.');
+    } catch (e) {
+      setError(
+        e.message === 'rate_limited' ? 'Demasiadas tentativas. Tente novamente mais tarde.'
+          : e.message === 'unauthorized' ? 'Palavra-passe incorreta.'
+            : 'Não foi possível entrar. Verifique a ligação e tente novamente.',
+      );
     } finally {
       setBusy(false);
     }
@@ -29,8 +33,10 @@ export default function AdminLogin({ onSuccess }) {
           type="password" value={password} autoFocus
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Palavra-passe"
+          aria-label="Palavra-passe"
+          autoComplete="current-password"
         />
-        {error && <span className="admin-login-error">{error}</span>}
+        {error && <span className="admin-login-error" role="alert">{error}</span>}
         <button type="submit" disabled={busy}>{busy ? 'A entrar…' : 'Entrar'}</button>
       </form>
     </div>

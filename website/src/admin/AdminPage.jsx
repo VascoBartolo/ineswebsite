@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { adminApi } from './adminApi';
+import { adminApi, setUnauthorizedHandler } from './adminApi';
 import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import './admin.css';
@@ -12,6 +12,10 @@ export default function AdminPage() {
     .catch(() => setState('out'));
 
   useEffect(() => { check(); }, []);
+  useEffect(() => {
+    setUnauthorizedHandler(() => setState('out'));
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   if (state === 'loading') return <div className="admin-loading">A carregar…</div>;
   if (state === 'out') return <AdminLogin onSuccess={() => setState('in')} />;
