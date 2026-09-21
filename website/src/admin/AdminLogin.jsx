@@ -30,6 +30,7 @@ export default function AdminLogin({ onSuccess }) {
         <h1>Painel de Administração</h1>
         <p>Introduz a palavra-passe para continuar.</p>
         <input
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- sole field on a login-only screen
           type="password" value={password} autoFocus
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Palavra-passe"
