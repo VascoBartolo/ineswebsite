@@ -106,10 +106,12 @@ export default function EditBookingModal({ booking, create = false, locations = 
   };
 
   return (
-    // The backdrop is inert mid-save, like Escape: a stray click must not discard edits in flight.
-    <div className="modal-backdrop" onClick={busy ? undefined : onClose}>
+    // A click on the backdrop itself closes (Escape is the keyboard equivalent);
+    // inert mid-save, like Escape, so a stray click cannot discard edits in flight.
+    <div className="modal-backdrop" role="presentation"
+         onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title"
-           ref={dialogRef} onClick={(e) => e.stopPropagation()}>
+           ref={dialogRef}>
         <h3 id="edit-modal-title">{create ? 'Nova marcação' : `Editar ${booking.reference}`}</h3>
         <div className="modal-body">
         <div className="modal-grid">

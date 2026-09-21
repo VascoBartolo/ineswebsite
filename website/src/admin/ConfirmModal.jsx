@@ -23,9 +23,12 @@ export default function ConfirmModal({
   }, [busy, onCancel]);
 
   return (
-    <div className="modal-backdrop" onClick={busy ? undefined : onCancel}>
+    // A click on the dimmed backdrop itself (not inside the dialog) cancels; Escape
+    // is the keyboard equivalent, so the backdrop is presentational.
+    <div className="modal-backdrop" role="presentation"
+         onClick={(e) => { if (e.target === e.currentTarget && !busy) onCancel(); }}>
       <div className="modal modal-sm" role="alertdialog" aria-modal="true" ref={dialogRef}
-           aria-labelledby={titleId} aria-describedby={bodyId} onClick={(e) => e.stopPropagation()}>
+           aria-labelledby={titleId} aria-describedby={bodyId}>
         <h3 id={titleId}>{title}</h3>
         <p className="modal-note" id={bodyId}>{body}</p>
         {children}

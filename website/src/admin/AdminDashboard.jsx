@@ -29,7 +29,7 @@ export default function AdminDashboard({ onLogout }) {
         <button className="admin-logout" onClick={logout}>Terminar sessão</button>
       </header>
 
-      <nav className="admin-tabs" role="tablist" aria-label="Secções do painel">
+      <div className="admin-tabs" role="tablist" aria-label="Secções do painel">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -52,7 +52,7 @@ export default function AdminDashboard({ onLogout }) {
             <span className="tab-label">{t.label}</span>
           </button>
         ))}
-      </nav>
+      </div>
 
       <AnimatePresence mode="wait">
         <motion.div
