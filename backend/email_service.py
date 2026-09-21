@@ -121,6 +121,12 @@ def _fmt_time(booking):
     return f"{booking.slot_time.strftime('%H:%M')} (hora dos Açores, {offset})"
 
 
+def _fmt_time_mainland(booking):
+    """The same moment on the mainland clock, where most online clients are."""
+    start = pytz.timezone(TIMEZONE).localize(datetime.combine(booking.slot_date, booking.slot_time))
+    return f"{start.astimezone(pytz.timezone('Europe/Lisbon')).strftime('%H:%M')} em Portugal continental"
+
+
 def _booking_detail_block(booking):
     regime_info = escape(booking.regime)
     if booking.local_consulta:
@@ -134,7 +140,8 @@ def _booking_detail_block(booking):
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Data</td>
             <td style="padding:5px 0;">{_fmt_date(booking.slot_date)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Hora</td>
-            <td style="padding:5px 0;">{_fmt_time(booking)}</td></tr>
+            <td style="padding:5px 0;">{_fmt_time(booking)}<br>
+                <span style="color:#7A5050;font-size:0.85rem;">{_fmt_time_mainland(booking)}</span></td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Duração</td>
             <td style="padding:5px 0;">{dur}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Consulta</td>

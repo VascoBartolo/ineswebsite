@@ -117,12 +117,20 @@ def test_booking_time_names_the_azores_zone_and_offset(slot_date, expected):
     assert es._fmt_time(b) == expected
 
 
-def test_confirmation_email_states_azores_time(app, monkeypatch):
+@pytest.mark.parametrize("slot_date", [date(2026, 12, 10), date(2026, 7, 15), date(2026, 10, 25)])
+def test_mainland_time_is_one_hour_ahead_all_year(slot_date):
+    b = _booking()
+    b.slot_date = slot_date
+    assert es._fmt_time_mainland(b) == "18:00 em Portugal continental"
+
+
+def test_confirmation_email_states_azores_and_mainland_time(app, monkeypatch):
     sent = []
     monkeypatch.setattr(es, "_send", lambda to, subject, html, reply_to=None: sent.append(html))
     with app.app_context():
         es.send_booking_confirmed_client(_booking())
     assert "17:00 (hora dos Açores, UTC−1)" in sent[0]
+    assert "18:00 em Portugal continental" in sent[0]
 
 
 def test_smtp_connection_has_a_timeout(app, monkeypatch):
