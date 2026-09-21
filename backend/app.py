@@ -353,11 +353,14 @@ def contact():
     return jsonify({"message": "sent"}), 200
 
 
-@app.route("/api/bookings/lookup")
+@app.route("/api/bookings/lookup", methods=["POST"])
 @limiter.limit("20 per minute")
 def lookup():
-    reference = request.args.get("reference", "").strip().upper()
-    email = request.args.get("email", "").strip().lower()
+    # POST body, not query string: a URL carrying the client's email ends up in
+    # proxy access logs and browser history.
+    data = json_body()
+    reference = s(data, "reference").upper()
+    email = s(data, "email").lower()
 
     if not reference or not email:
         return jsonify({"error": "reference and email required"}), 400

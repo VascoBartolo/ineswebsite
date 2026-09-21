@@ -400,7 +400,13 @@ export default function BookingPage() {
     setEditMode(false);
     setEditSent(false);
     try {
-      const res = await fetch(`/api/bookings/lookup?reference=${encodeURIComponent(lookupRef)}&email=${encodeURIComponent(lookupEmail)}`);
+      // In the body, not the URL: a query string holding the email would land in
+      // server access logs and browser history.
+      const res = await fetch('/api/bookings/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference: lookupRef, email: lookupEmail }),
+      });
       const data = await res.json();
       if (!res.ok) {
         setLookupError('Marcação não encontrada. Verifique a referência e o email.');
