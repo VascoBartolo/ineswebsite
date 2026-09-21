@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { adminApi } from './adminApi';
 import MiniBarChart from './MiniBarChart';
 
@@ -8,36 +8,42 @@ export default function StatsTab() {
   const [filters, setFilters] = useState({ date_from: '', date_to: '', regime: 'all', local_consulta: '', group_by: 'week' });
   const [locations, setLocations] = useState([]);
   const [data, setData] = useState(null);
+  const [error, setError] = useState(false);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    // Only the latest filter change may write state: an older, slower response
+    // must not overwrite the numbers for the filters now on screen.
+    let cancelled = false;
     const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'all'));
-    if (!params.group_by) params.group_by = filters.group_by;
-    setData(await adminApi.stats({ ...params, group_by: filters.group_by }));
+    adminApi.stats(params)
+      .then((d) => { if (!cancelled) { setData(d); setError(false); } })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
   }, [filters]);
-
-  useEffect(() => { load(); }, [load]);
   useEffect(() => { adminApi.locations().then((r) => setLocations(r.locations)).catch(() => {}); }, []);
 
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
-  if (!data) return <div className="tab">A carregar…</div>;
+  if (!data) {
+    return <div className="tab">{error ? 'Não foi possível carregar as estatísticas.' : 'A carregar…'}</div>;
+  }
 
   return (
     <div className="tab">
       <div className="filters">
-        <div className="fld"><label>De</label><input type="date" value={filters.date_from} onChange={set('date_from')} /></div>
-        <div className="fld"><label>Até</label><input type="date" value={filters.date_to} onChange={set('date_to')} /></div>
-        <div className="fld"><label>Regime</label>
-          <select value={filters.regime} onChange={set('regime')}>
+        <div className="fld"><label htmlFor="st-from">De</label><input id="st-from" type="date" value={filters.date_from} onChange={set('date_from')} /></div>
+        <div className="fld"><label htmlFor="st-to">Até</label><input id="st-to" type="date" value={filters.date_to} onChange={set('date_to')} /></div>
+        <div className="fld"><label htmlFor="st-regime">Regime</label>
+          <select id="st-regime" value={filters.regime} onChange={set('regime')}>
             <option value="all">Todos</option><option value="presencial">Presencial</option><option value="online">Online</option>
           </select></div>
-        <div className="fld"><label>Local</label>
-          <select value={filters.local_consulta} onChange={set('local_consulta')}>
+        <div className="fld"><label htmlFor="st-local">Local</label>
+          <select id="st-local" value={filters.local_consulta} onChange={set('local_consulta')}>
             <option value="">Todos</option>{locations.map((l) => <option key={l} value={l}>{l}</option>)}
           </select></div>
-        <div className="fld"><label>Agrupar por</label>
-          <div className="seg">
+        <div className="fld"><span className="fld-label" id="st-group">Agrupar por</span>
+          <div className="seg" role="group" aria-labelledby="st-group">
             {['day', 'week', 'month'].map((g) => (
-              <button key={g} className={filters.group_by === g ? 'on' : ''} onClick={() => setFilters((f) => ({ ...f, group_by: g }))}>
+              <button key={g} type="button" aria-pressed={filters.group_by === g} className={filters.group_by === g ? 'on' : ''} onClick={() => setFilters((f) => ({ ...f, group_by: g }))}>
                 {g === 'day' ? 'Dia' : g === 'week' ? 'Semana' : 'Mês'}
               </button>
             ))}

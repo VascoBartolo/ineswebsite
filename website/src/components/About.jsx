@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useInView } from '../hooks/useInView';
-import { Sparkle, Smiley, HouseLine } from '@phosphor-icons/react';
+import { Sparkle, Smile, House } from 'lucide-react';
 import './About.css';
 
 const fadeUp = {
@@ -19,12 +19,12 @@ const values = [
     desc: 'Visão global da criança e da família, respeitando o desenvolvimento nutricional em cada fase da infância e da rotina familiar.',
   },
   {
-    Icon: Smiley,
+    Icon: Smile,
     title: 'Relação Positiva com a Comida',
     desc: 'Sem pressões nem restrições — a refeição deve ser um momento de descoberta e prazer.',
   },
   {
-    Icon: HouseLine,
+    Icon: House,
     title: 'Apoio à Família',
     desc: 'A família é parceira do processo. Orientação prática para pais, mães e cuidadores.',
   },
@@ -44,10 +44,12 @@ export default function About() {
         >
           <div className="about-img-stack">
             <div className="about-img-main">
-              <img src="/images/ines-nutri-177-2.jpg.jpeg" alt="Inês Bandarra — Nutricionista Pediátrica nos Açores" />
+              <img src="/images/ines-nutri-177-2.jpg.jpeg" alt="Inês Bandarra — Nutricionista Pediátrica nos Açores"
+                   width={1066} height={1600} loading="lazy" decoding="async" />
             </div>
             <div className="about-img-accent">
-              <img src="/images/ines-nutri-159.jpg.jpeg" alt="Consulta de nutrição materno-infantil" />
+              <img src="/images/ines-nutri-159.jpg.jpeg" alt="Consulta de nutrição materno-infantil"
+                   width={1066} height={1600} loading="lazy" decoding="async" />
             </div>
           </div>
           <div className="about-deco-circle" />
@@ -111,7 +113,7 @@ export default function About() {
             {values.map((v) => (
               <div key={v.title} className="value-item">
                 <div className="value-icon-box">
-                  <v.Icon size={20} weight="regular" />
+                  <v.Icon size={20} strokeWidth={1.75} aria-hidden="true" />
                 </div>
                 <div>
                   <strong>{v.title}</strong>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from '../hooks/useInView';
 import { MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { ENTITY } from '../pages/legalInfo';
 
 function InstagramIcon({ size = 18 }) {
   return (
@@ -104,14 +105,14 @@ export default function Contact() {
               <div className="detail-icon"><Phone size={18} /></div>
               <div>
                 <strong>Telefone / WhatsApp</strong>
-                <span>+351 969 743 355</span>
+                <span>{ENTITY.phone}</span>
               </div>
             </div>
             <div className="contact-detail">
               <div className="detail-icon"><Mail size={18} /></div>
               <div>
                 <strong>Email</strong>
-                <span>inesbandarranutricao@gmail.com</span>
+                <span>{ENTITY.email}</span>
               </div>
             </div>
             <div className="contact-detail">
@@ -223,7 +224,7 @@ export default function Contact() {
                 </button>
                 <a
                   className="whatsapp-btn"
-                  href="https://wa.me/351969743355"
+                  href={`https://wa.me/${ENTITY.phoneHref.replace('+', '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

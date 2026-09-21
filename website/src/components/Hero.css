@@ -129,7 +129,8 @@
 
 .btn-secondary {
   border: 1.5px solid var(--rose);
-  color: var(--rose);
+  /* mauve, not rose: rose text on white is 3.45:1, below WCAG AA (4.5:1). */
+  color: var(--mauve);
   padding: 0.85rem 2rem;
   border-radius: 50px;
   font-weight: 500;
@@ -140,7 +141,7 @@
 }
 
 .btn-secondary:hover {
-  background: var(--rose);
+  background: var(--mauve);
   color: var(--white);
   transform: translateY(-2px);
 }

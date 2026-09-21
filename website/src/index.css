@@ -65,3 +65,29 @@ section {
   width: 100%;
   min-height: 100vh;
 }
+
+/* Off-screen until focused by the keyboard, then shown above the fixed navbar. */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 2000;
+  background: var(--crimson);
+  color: var(--white);
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.skip-link:focus { top: 1rem; }
+
+/* <main> takes focus from the skip link; that needs no ring of its own. */
+main:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

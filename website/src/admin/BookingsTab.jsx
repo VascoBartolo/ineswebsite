@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { adminApi } from './adminApi';
 import EditBookingModal from './EditBookingModal';
 import ConfirmModal from './ConfirmModal';
@@ -14,11 +14,12 @@ function fmtDate(iso) {
 }
 function fmtDur(m) { return m === 90 ? '1h30' : '1h'; }
 
+const EMPTY_RESULT = { bookings: [], summary: {}, pagination: { total: 0, pages: 1, per_page: 30 } };
+
 export default function BookingsTab() {
   const [filters, setFilters] = useState({ q: '', status: 'all', regime: 'all', local_consulta: '', date_from: '', date_to: '' });
-  const [data, setData] = useState({ bookings: [], summary: {} });
+  const [searchQ, setSearchQ] = useState('');
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({ total: 0, pages: 1, per_page: 30 });
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -26,24 +27,46 @@ export default function BookingsTab() {
   const [toast, setToast] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [pendingCancel, setPendingCancel] = useState(null);
+  const [notifyCancel, setNotifyCancel] = useState(true);
   const [busyAction, setBusyAction] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
+  const [loaded, setLoaded] = useState({ key: null, result: EMPTY_RESULT });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'all'));
-    params.page = page;
-    params.per_page = 30;
-    params.order = order;
-    try {
-      const result = await adminApi.bookings(params);
-      setData(result);
-      setPagination(result.pagination || { total: 0, pages: 1, per_page: 30 });
-    } finally { setLoading(false); }
-  }, [filters, page, order]);
+  // Search runs once typing pauses, not on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQ(filters.q), 300);
+    return () => clearTimeout(t);
+  }, [filters.q]);
 
-  useEffect(() => { load(); }, [load]);
+  // Keyed on content, so a keystroke that only changes the not-yet-debounced
+  // search text does not refetch an identical query.
+  const queryKey = JSON.stringify({ ...filters, q: searchQ, page, order });
+  const params = useMemo(() => {
+    const { page: pg, order: ord, ...f } = JSON.parse(queryKey);
+    const active = Object.fromEntries(Object.entries(f).filter(([, v]) => v && v !== 'all'));
+    return { ...active, page: pg, per_page: 30, order: ord };
+  }, [queryKey]);
+  const requestKey = `${queryKey}#${reloadTick}`;
+
+  useEffect(() => {
+    // Aborting the superseded request means a slow, stale response can never
+    // overwrite the results for what is on screen now.
+    const ctrl = new AbortController();
+    adminApi.bookings(params, { signal: ctrl.signal })
+      .then((result) => setLoaded({ key: requestKey, result }))
+      .catch((e) => {
+        if (e.name === 'AbortError') return;
+        setLoaded((l) => ({ ...l, key: requestKey }));
+        setToast({ message: 'Não foi possível carregar as marcações.', tone: 'err' });
+      });
+    return () => ctrl.abort();
+  }, [params, requestKey]);
   useEffect(() => { adminApi.locations().then((r) => setLocations(r.locations)).catch(() => {}); }, []);
+
+  const loading = loaded.key !== requestKey;
+  const data = loaded.result;
+  const pagination = data.pagination || EMPTY_RESULT.pagination;
+  const load = () => setReloadTick((t) => t + 1);
 
   // Sorting is applied server-side, so flipping it has to restart at page 1 —
   // page 3 of the old order is a different slice of the new one.
@@ -74,7 +97,7 @@ export default function BookingsTab() {
   };
 
   const cancel = () => runAction(
-    pendingCancel, adminApi.cancelBooking,
+    pendingCancel, (ref) => adminApi.cancelBooking(ref, notifyCancel),
     `Marcação ${pendingCancel} cancelada.`,
     `Não foi possível cancelar a marcação ${pendingCancel}.`,
     setPendingCancel,
@@ -90,26 +113,26 @@ export default function BookingsTab() {
   return (
     <div className="tab">
       <div className="filters">
-        <div className="fld grow"><label>Pesquisar</label>
-          <input placeholder="Nome, email ou referência…" value={filters.q} onChange={set('q')} /></div>
-        <div className="fld"><label>Estado</label>
-          <select value={filters.status} onChange={set('status')}>
+        <div className="fld grow"><label htmlFor="bk-q">Pesquisar</label>
+          <input id="bk-q" placeholder="Nome, email ou referência…" value={filters.q} onChange={set('q')} /></div>
+        <div className="fld"><label htmlFor="bk-status">Estado</label>
+          <select id="bk-status" value={filters.status} onChange={set('status')}>
             <option value="all">Todos</option><option value="pendente">Pendente</option><option value="confirmado">Confirmado</option><option value="revisao">Necessita Alteração</option><option value="cancelado">Cancelado</option>
           </select></div>
-        <div className="fld"><label>Regime</label>
-          <select value={filters.regime} onChange={set('regime')}>
+        <div className="fld"><label htmlFor="bk-regime">Regime</label>
+          <select id="bk-regime" value={filters.regime} onChange={set('regime')}>
             <option value="all">Todos</option><option value="presencial">Presencial</option><option value="online">Online</option>
           </select></div>
-        <div className="fld"><label>Local</label>
-          <select value={filters.local_consulta} onChange={set('local_consulta')}>
+        <div className="fld"><label htmlFor="bk-local">Local</label>
+          <select id="bk-local" value={filters.local_consulta} onChange={set('local_consulta')}>
             <option value="">Todos</option>{locations.map((l) => <option key={l} value={l}>{l}</option>)}
           </select></div>
-        <div className="fld"><label>De</label><input type="date" value={filters.date_from} onChange={set('date_from')} /></div>
-        <div className="fld"><label>Até</label><input type="date" value={filters.date_to} onChange={set('date_to')} /></div>
+        <div className="fld"><label htmlFor="bk-from">De</label><input id="bk-from" type="date" value={filters.date_from} onChange={set('date_from')} /></div>
+        <div className="fld"><label htmlFor="bk-to">Até</label><input id="bk-to" type="date" value={filters.date_to} onChange={set('date_to')} /></div>
       </div>
 
       <div className="tbl-actions">
-        <button className="btn-add" onClick={() => setCreating(true)}>+ Nova marcação</button>
+        <button type="button" className="btn-add" onClick={() => setCreating(true)}>+ Nova marcação</button>
       </div>
 
       <div className="table-wrap">
@@ -135,9 +158,9 @@ export default function BookingsTab() {
                 <td data-label="Preço">{Number(b.price).toFixed(0)}€</td>
                 <td data-label="Estado"><span className={`pill ${STATUS_CLS[b.status] || 'ok'}`}>{STATUS_LABEL[b.status] || b.status}</span></td>
                 <td data-label="Ações"><div className="acts">
-                  <button className="ic" title="Editar" onClick={() => setEditing(b)}>✎</button>
-                  {b.status !== 'cancelado' && <button className="ic" title="Cancelar" onClick={() => setPendingCancel(b.reference)}>⊘</button>}
-                  <button className="ic" title="Eliminar" onClick={() => setPendingDelete(b.reference)}>🗑</button>
+                  <button type="button" className="ic" title="Editar" aria-label={`Editar ${b.reference}`} onClick={() => setEditing(b)}>✎</button>
+                  {b.status !== 'cancelado' && <button type="button" className="ic" title="Cancelar" aria-label={`Cancelar ${b.reference}`} onClick={() => { setNotifyCancel(true); setPendingCancel(b.reference); }}>⊘</button>}
+                  <button type="button" className="ic" title="Eliminar" aria-label={`Eliminar ${b.reference}`} onClick={() => setPendingDelete(b.reference)}>🗑</button>
                 </div></td>
               </tr>
             ))}
@@ -153,9 +176,9 @@ export default function BookingsTab() {
 
       {pagination.pages > 1 && (
         <div className="pagination">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Anterior</button>
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Anterior</button>
           <span>Página {page} de {pagination.pages}</span>
-          <button disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)}>Seguinte →</button>
+          <button type="button" disabled={page >= pagination.pages} onClick={() => setPage((p) => p + 1)}>Seguinte →</button>
         </div>
       )}
 
@@ -186,11 +209,16 @@ export default function BookingsTab() {
       {pendingCancel && (
         <ConfirmModal
           title="Cancelar marcação"
-          body={`A marcação ${pendingCancel} será cancelada e o cliente notificado por email.`}
+          body={`A marcação ${pendingCancel} será cancelada.`}
           confirmLabel="Cancelar marcação" cancelLabel="Voltar" danger busy={busyAction}
           onConfirm={cancel}
           onCancel={() => setPendingCancel(null)}
-        />
+        >
+          <label className="modal-check">
+            <input type="checkbox" checked={notifyCancel} onChange={(e) => setNotifyCancel(e.target.checked)} disabled={busyAction} />
+            Notificar o cliente por email
+          </label>
+        </ConfirmModal>
       )}
       {pendingDelete && (
         <ConfirmModal

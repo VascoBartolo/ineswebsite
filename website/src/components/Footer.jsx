@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
+import { ENTITY } from '../pages/legalInfo';
 
 function InstagramIcon({ size = 20 }) {
   return (
@@ -63,8 +64,8 @@ export default function Footer() {
         <div className="footer-contact-col">
           <span className="footer-nav-title">Contacto</span>
           <p>Ilha Terceira, Açores</p>
-          <p>inesbandarranutricao@gmail.com</p>
-          <p>+351 969 743 355</p>
+          <p>{ENTITY.email}</p>
+          <p>{ENTITY.phone}</p>
         </div>
 
         <nav className="footer-nav footer-legal">

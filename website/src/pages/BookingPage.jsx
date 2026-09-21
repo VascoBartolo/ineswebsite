@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'lucide-react';
 import './BookingPage.css';
+import SkipLink from '../components/SkipLink';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { ENTITY } from './legalInfo';
 import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
+import {
+  PRACTICE_TZ, practiceOffset, localMinusPractice, fmtUtcOffset, fmtOffsetDiff, shiftTime, slotInstant,
+} from '../utils/practiceTime';
 
 // ---- Constants ----
 
@@ -122,30 +128,36 @@ function CalendarPicker({ selectedDate, onSelect, duration, regime, localConsult
   return (
     <div className="cal-picker">
       <div className="cal-header">
-        <button className="cal-nav" onClick={prevMonth} type="button" disabled={!canGoPrev()}>‹</button>
-        <span className="cal-month-label">{MONTH_NAMES[viewMonth]} {viewYear}</span>
-        <button className="cal-nav" onClick={nextMonth} type="button">›</button>
+        <button className="cal-nav" onClick={prevMonth} type="button" disabled={!canGoPrev()} aria-label="Mês anterior">‹</button>
+        <span className="cal-month-label" aria-live="polite">{MONTH_NAMES[viewMonth]} {viewYear}</span>
+        <button className="cal-nav" onClick={nextMonth} type="button" aria-label="Mês seguinte">›</button>
       </div>
       <div className="cal-grid">
-        {DAY_NAMES_SHORT.map(d => <div key={d} className="cal-day-header">{d}</div>)}
+        {DAY_NAMES_SHORT.map(d => <div key={d} className="cal-day-header" aria-hidden="true">{d}</div>)}
         {cells.map((d, i) => {
-          const count = d ? slotsFor(d) : null;
-          const available = !!d && !isPast(d) && count > 0;
+          if (!d) return <div key={`empty-${i}`} className="cal-cell cal-empty" aria-hidden="true" />;
+          const iso = toISO(d);
+          const count = slotsFor(d);
+          const available = !isPast(d) && count > 0;
+          const vagas = count === null ? 'a carregar' : available ? `${count} ${count === 1 ? 'vaga' : 'vagas'}` : 'sem vagas';
           return (
-            <div
-              key={i}
+            <button
+              type="button"
+              key={iso}
               className={[
                 'cal-cell',
-                !d ? 'cal-empty' : '',
                 available ? 'cal-available' : 'cal-disabled',
-                d && isSel(d) ? 'cal-selected' : '',
-                d && isTdy(d) && !isSel(d) ? 'cal-today' : '',
+                isSel(d) ? 'cal-selected' : '',
+                isTdy(d) && !isSel(d) ? 'cal-today' : '',
               ].join(' ').trim()}
-              onClick={() => available && onSelect(toISO(d))}
+              disabled={!available}
+              aria-pressed={!!isSel(d)}
+              aria-label={`${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} de ${MONTH_NAMES[d.getMonth()].toLowerCase()}, ${vagas}`}
+              onClick={() => onSelect(iso)}
             >
-              {d ? d.getDate() : ''}
-              {available && <span className="cal-slots">{count}</span>}
-            </div>
+              {d.getDate()}
+              {available && <span className="cal-slots" aria-hidden="true">{count}</span>}
+            </button>
           );
         })}
       </div>
@@ -154,6 +166,30 @@ function CalendarPicker({ selectedDate, onSelect, duration, regime, localConsult
           ? 'A carregar disponibilidade…'
           : 'O número em cada dia indica as vagas disponíveis.'}
       </div>
+    </div>
+  );
+}
+
+// ---- Time zone note ----
+
+// Slots are practice time. Say so, name the zone and this date's offset, and
+// translate for visitors elsewhere (mainland clients booking online are an hour ahead).
+function TimezoneNote({ dateStr }) {
+  const diff = localMinusPractice(dateStr);
+  return (
+    <div className="tz-note" role="note">
+      <Clock size={16} aria-hidden="true" />
+      <p>
+        <strong>Todos os horários estão na hora dos Açores</strong>{' '}
+        ({PRACTICE_TZ}): {fmtUtcOffset(practiceOffset(dateStr))} {dateStr ? 'nesta data' : 'hoje'}.
+        Os Açores estão em UTC−1 no inverno e UTC+0 no verão.
+        {diff !== 0 && (
+          <span className="tz-note-local">
+            {' '}A sua hora local está {fmtOffsetDiff(diff)} {diff > 0 ? 'à frente' : 'atrás'}:
+            {' '}16:00 nos Açores são {shiftTime('16:00', diff)} para si.
+          </span>
+        )}
+      </p>
     </div>
   );
 }
@@ -190,7 +226,7 @@ function SummaryBar({ form }) {
       <span className="summary-item">{form.tipoConsulta}</span>
       {localLabel && <><span className="summary-sep">·</span><span className="summary-item">{localLabel}</span></>}
       {form.slotDate && (
-        <><span className="summary-sep">·</span><span className="summary-item">{fmtDate(form.slotDate)}{form.slotTime ? ` às ${form.slotTime}` : ''}</span></>
+        <><span className="summary-sep">·</span><span className="summary-item">{fmtDate(form.slotDate)}{form.slotTime ? ` às ${form.slotTime} (hora dos Açores)` : ''}</span></>
       )}
       {price && <span className="summary-price">{price}€ · {fmtDuration(duration)}</span>}
     </div>
@@ -216,20 +252,46 @@ const emptyForm = {
   contexto: '',
 };
 
+// Deep-link from emails: /marcar-consulta?tab=verificar&ref=IB-XXXX lands the client
+// on the lookup tab with the reference pre-filled. The email is intentionally NOT
+// carried in the URL (privacy: it would leak into history/logs/referrers) — the
+// client still enters it, which keeps a light verification step.
+function readDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const ref = (params.get('ref') || '').toUpperCase();
+  return { ref, verify: params.get('tab') === 'verificar' || !!ref };
+}
+
 export default function BookingPage() {
-  const [activeTab, setActiveTab] = useState('nova');
+  usePageTitle('Marcar Consulta');
+  const [deepLink] = useState(readDeepLink);
+  const [activeTab, setActiveTab] = useState(deepLink.verify ? 'verificar' : 'nova');
 
   // Booking form state
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(emptyForm);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slots, setSlots] = useState({ key: null, list: [] });
+  const [slotsReload, setSlotsReload] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [formError, setFormError] = useState('');
+  // Set when the client moves between steps, so the new step's heading takes
+  // focus and screen readers announce where they are.
+  const focusStepTitle = useRef(false);
+  const stepTitleRef = useCallback(el => {
+    if (el && focusStepTitle.current) {
+      focusStepTitle.current = false;
+      el.focus();
+    }
+  }, []);
+  const goToStep = next => {
+    setFormError('');
+    focusStepTitle.current = true;
+    setStep(next);
+  };
 
   // Lookup state
-  const [lookupRef, setLookupRef] = useState('');
+  const [lookupRef, setLookupRef] = useState(deepLink.ref);
   const [lookupEmail, setLookupEmail] = useState('');
   const [lookupResult, setLookupResult] = useState(null);
   const [lookupError, setLookupError] = useState('');
@@ -241,54 +303,44 @@ export default function BookingPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editSent, setEditSent] = useState(false);
 
-  // Deep-link from emails: /marcar-consulta?tab=verificar&ref=IB-XXXX lands the client
-  // on the lookup tab with the reference pre-filled. The email is intentionally NOT
-  // carried in the URL (privacy: it would leak into history/logs/referrers) — the
-  // client still enters it, which keeps a light verification step.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    if (params.get('tab') === 'verificar' || ref) {
-      setActiveTab('verificar');
-    }
-    if (ref) {
-      setLookupRef(ref.toUpperCase());
-    }
-  }, []);
-
   const isFirst = form.primeiraConsulta === 'primeira';
-  const price = getPrice(isFirst, form.regime);
   const duration = getDuration(form.sujeito, isFirst);
   const consultTypes = form.sujeito ? CONSULTATION_TYPES[form.sujeito] : [];
 
-  useEffect(() => {
-    if (form.slotDate && form.primeiraConsulta && form.regime) {
-      fetchSlots(form.slotDate, getDuration(form.sujeito, form.primeiraConsulta === 'primeira'), form.regime, form.localConsulta);
-    }
-  }, [form.slotDate, form.sujeito, form.primeiraConsulta, form.regime, form.localConsulta]);
+  // Free times for the chosen date and criteria. Keyed on the query so that when
+  // the client clicks through dates quickly, only the latest answer is shown —
+  // the superseded request is aborted and can never land under the wrong date.
+  const slotQuery = form.slotDate && form.primeiraConsulta && form.regime
+    ? new URLSearchParams({
+      date: form.slotDate,
+      duration: String(duration),
+      regime: form.regime,
+      ...(form.localConsulta ? { local_consulta: form.localConsulta } : {}),
+    }).toString()
+    : null;
+  const slotsKey = slotQuery && `${slotQuery}#${slotsReload}`;
 
-  async function fetchSlots(dateStr, dur, regime, localConsulta) {
-    setLoadingSlots(true);
-    setAvailableSlots([]);
-    setForm(prev => ({ ...prev, slotTime: '' }));
-    try {
-      const params = new URLSearchParams({ date: dateStr, duration: dur });
-      if (regime) params.set('regime', regime);
-      if (localConsulta) params.set('local_consulta', localConsulta);
-      const res = await fetch(`/api/availability?${params}`);
-      const data = await res.json();
-      setAvailableSlots(data.slots || []);
-    } catch {
-      setAvailableSlots([]);
-    } finally {
-      setLoadingSlots(false);
-    }
-  }
+  useEffect(() => {
+    if (!slotsKey) return undefined;
+    const ctrl = new AbortController();
+    fetch(`/api/availability?${slotQuery}`, { signal: ctrl.signal })
+      .then(res => res.json())
+      .then(data => setSlots({ key: slotsKey, list: data.slots || [] }))
+      .catch(e => { if (e.name !== 'AbortError') setSlots({ key: slotsKey, list: [] }); });
+    return () => ctrl.abort();
+  }, [slotQuery, slotsKey]);
+
+  const loadingSlots = !!slotsKey && slots.key !== slotsKey;
+  const availableSlots = slotsKey && slots.key === slotsKey ? slots.list : [];
+  // A time picked earlier only counts while it is still offered for the current criteria.
+  const slotChosen = !!form.slotTime && availableSlots.includes(form.slotTime);
+  const localDiff = form.slotDate ? localMinusPractice(form.slotDate) : 0;
+  const lookupIsPast = !!lookupResult && slotInstant(lookupResult.slot_date, lookupResult.slot_time) < new Date();
 
   function canProceed() {
     if (step === 1) return !!(form.sujeito && form.tipoConsulta && form.primeiraConsulta);
     if (step === 2) return !!(form.regime && (form.regime === 'online' || form.localConsulta));
-    if (step === 3) return !!(form.slotDate && form.slotTime);
+    if (step === 3) return !!form.slotDate && slotChosen;
     if (step === 4) return !!(form.nome && form.idade && form.email && form.contacto);
     return false;
   }
@@ -322,9 +374,10 @@ export default function BookingPage() {
       const data = await res.json();
       if (!res.ok) {
         if (data.error === 'slot_unavailable') {
+          goToStep(3);
           setFormError('Este horário já não está disponível. Por favor escolha outro.');
-          setStep(3);
-          fetchSlots(form.slotDate, duration, form.regime, form.localConsulta);
+          setField('slotTime', '');
+          setSlotsReload(n => n + 1);
         } else {
           setFormError(data.message || 'Erro ao processar a marcação. Tente novamente.');
         }
@@ -332,7 +385,7 @@ export default function BookingPage() {
         setConfirmedBooking(data.booking);
       }
     } catch {
-      setFormError('Erro de ligação. Verifica a tua conexão e tenta novamente.');
+      setFormError('Erro de ligação. Verifique a sua conexão e tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -410,12 +463,14 @@ export default function BookingPage() {
   if (confirmedBooking) {
     return (
       <div className="booking-page">
+        <SkipLink />
         <div className="booking-header">
           <div className="booking-header-inner">
             <Link to="/" className="back-link"><ArrowLeft size={16} /> Voltar ao início</Link>
             <img src="/images/vermelho.png" alt="IB Nutrição" className="booking-logo" />
           </div>
         </div>
+        <main className="booking-main" id="main" tabIndex={-1}>
         <div className="booking-container">
           <motion.div
             className="success-screen"
@@ -423,9 +478,9 @@ export default function BookingPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="success-check">✓</div>
+            <div className="success-check" aria-hidden="true">✓</div>
             <h2 className="success-title">Consulta Marcada!</h2>
-            <p className="success-subtitle">Receberás uma confirmação no teu email em breve.</p>
+            <p className="success-subtitle">Receberá uma confirmação no seu email em breve.</p>
 
             <div className="success-ref-box">
               <span className="success-ref-label">Referência da consulta</span>
@@ -436,13 +491,13 @@ export default function BookingPage() {
               <div className="success-row"><span>Consulta</span><strong>{confirmedBooking.tipo_consulta}</strong></div>
               <div className="success-row"><span>Regime</span><strong>{confirmedBooking.regime}{confirmedBooking.local_consulta ? ` — ${confirmedBooking.local_consulta}` : ''}</strong></div>
               <div className="success-row"><span>Data</span><strong>{fmtDate(confirmedBooking.slot_date)}</strong></div>
-              <div className="success-row"><span>Hora</span><strong>{confirmedBooking.slot_time}</strong></div>
+              <div className="success-row"><span>Hora</span><strong>{confirmedBooking.slot_time} (hora dos Açores)</strong></div>
               <div className="success-row"><span>Duração</span><strong>{fmtDuration(confirmedBooking.duration_minutes)}</strong></div>
               <div className="success-row"><span>Preço</span><strong>{confirmedBooking.price}€</strong></div>
             </div>
 
             <p className="success-note">
-              Guarda a referência <strong>{confirmedBooking.reference}</strong> — é necessária para consultares ou alterares a tua marcação.
+              Guarde a referência <strong>{confirmedBooking.reference}</strong> — é necessária para consultar ou alterar a sua marcação.
             </p>
 
             <div className="success-actions">
@@ -456,6 +511,7 @@ export default function BookingPage() {
             </div>
           </motion.div>
         </div>
+        </main>
       </div>
     );
   }
@@ -464,6 +520,7 @@ export default function BookingPage() {
 
   return (
     <div className="booking-page">
+      <SkipLink />
       <div className="booking-header">
         <div className="booking-header-inner">
           <Link to="/" className="back-link"><ArrowLeft size={16} /> Voltar ao início</Link>
@@ -471,6 +528,7 @@ export default function BookingPage() {
         </div>
       </div>
 
+      <main className="booking-main" id="main" tabIndex={-1}>
       <div className="booking-hero">
         <span className="booking-eyebrow">IB Nutrição</span>
         <h1 className="booking-title">Marcar Consulta</h1>
@@ -478,11 +536,13 @@ export default function BookingPage() {
       </div>
 
       <div className="booking-container">
-        <div className="booking-tabs">
-          <button className={`booking-tab ${activeTab === 'nova' ? 'active' : ''}`} onClick={() => setActiveTab('nova')}>
+        <div className="booking-tabs" role="tablist" aria-label="Marcações">
+          <button type="button" role="tab" id="tab-nova" aria-selected={activeTab === 'nova'} aria-controls="booking-panel"
+                  className={`booking-tab ${activeTab === 'nova' ? 'active' : ''}`} onClick={() => setActiveTab('nova')}>
             Nova Marcação
           </button>
-          <button className={`booking-tab ${activeTab === 'verificar' ? 'active' : ''}`} onClick={() => setActiveTab('verificar')}>
+          <button type="button" role="tab" id="tab-verificar" aria-selected={activeTab === 'verificar'} aria-controls="booking-panel"
+                  className={`booking-tab ${activeTab === 'verificar' ? 'active' : ''}`} onClick={() => setActiveTab('verificar')}>
             Verificar / Cancelar
           </button>
         </div>
@@ -491,7 +551,7 @@ export default function BookingPage() {
           {activeTab === 'nova' ? (
 
             // ======= BOOKING FORM =======
-            <motion.div key="nova" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="nova" id="booking-panel" role="tabpanel" aria-labelledby="tab-nova" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <StepIndicator current={step} total={TOTAL_STEPS} />
 
               <AnimatePresence mode="wait">
@@ -507,14 +567,15 @@ export default function BookingPage() {
                   {/* ---- STEP 1: Consulta ---- */}
                   {step === 1 && (
                     <>
-                      <h2 className="form-step-title">Sobre a Consulta</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Sobre a Consulta</h2>
 
                       <div className="form-section">
-                        <p className="field-label">Para quem é a consulta?</p>
-                        <div className="choice-cards">
+                        <p className="field-label" id="lbl-sujeito">Para quem é a consulta?</p>
+                        <div className="choice-cards" role="group" aria-labelledby="lbl-sujeito">
                           <button
                             type="button"
                             className={`choice-card ${form.sujeito === 'adulto' ? 'selected' : ''}`}
+                            aria-pressed={form.sujeito === 'adulto'}
                             onClick={() => { setField('sujeito', 'adulto'); setField('tipoConsulta', ''); }}
                           >
                             <User size={28} strokeWidth={1.5} />
@@ -523,9 +584,10 @@ export default function BookingPage() {
                           <button
                             type="button"
                             className={`choice-card ${form.sujeito === 'bebé' ? 'selected' : ''}`}
+                            aria-pressed={form.sujeito === 'bebé'}
                             onClick={() => { setField('sujeito', 'bebé'); setField('tipoConsulta', ''); }}
                           >
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3"/><path d="M8 14s-3 0-3 3v1h14v-1c0-3-3-3-3-3H8z"/><path d="M9 8c0 0-.5-2 1-3 1-1 3-.5 3-.5"/></svg>
+                            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3"/><path d="M8 14s-3 0-3 3v1h14v-1c0-3-3-3-3-3H8z"/><path d="M9 8c0 0-.5-2 1-3 1-1 3-.5 3-.5"/></svg>
                             <span className="choice-label">Bebé/Criança</span>
                           </button>
                         </div>
@@ -533,8 +595,8 @@ export default function BookingPage() {
 
                       {form.sujeito && (
                         <motion.div className="form-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <p className="field-label">Tipo de consulta</p>
-                          <div className="radio-list">
+                          <p className="field-label" id="lbl-tipo">Tipo de consulta</p>
+                          <div className="radio-list" role="radiogroup" aria-labelledby="lbl-tipo">
                             {consultTypes.map(t => (
                               <label key={t.id} className={`radio-item ${form.tipoConsulta === t.id ? 'selected' : ''}`}>
                                 <input
@@ -553,11 +615,12 @@ export default function BookingPage() {
 
                       {form.tipoConsulta && (
                         <motion.div className="form-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <p className="field-label">É uma primeira consulta ou consulta de seguimento?</p>
-                          <div className="choice-cards">
+                          <p className="field-label" id="lbl-primeira">É uma primeira consulta ou consulta de seguimento?</p>
+                          <div className="choice-cards" role="group" aria-labelledby="lbl-primeira">
                             <button
                               type="button"
                               className={`choice-card ${form.primeiraConsulta === 'primeira' ? 'selected' : ''}`}
+                            aria-pressed={form.primeiraConsulta === 'primeira'}
                               onClick={() => setField('primeiraConsulta', 'primeira')}
                             >
                               <span className="choice-label">Primeira Consulta</span>
@@ -568,6 +631,7 @@ export default function BookingPage() {
                             <button
                               type="button"
                               className={`choice-card ${form.primeiraConsulta === 'seguimento' ? 'selected' : ''}`}
+                            aria-pressed={form.primeiraConsulta === 'seguimento'}
                               onClick={() => setField('primeiraConsulta', 'seguimento')}
                             >
                               <span className="choice-label">Consulta de Seguimento</span>
@@ -582,14 +646,15 @@ export default function BookingPage() {
                   {/* ---- STEP 2: Regime ---- */}
                   {step === 2 && (
                     <>
-                      <h2 className="form-step-title">Regime & Local</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Regime & Local</h2>
 
                       <div className="form-section">
-                        <p className="field-label">Modo da consulta</p>
-                        <div className="choice-cards">
+                        <p className="field-label" id="lbl-regime">Modo da consulta</p>
+                        <div className="choice-cards" role="group" aria-labelledby="lbl-regime">
                           <button
                             type="button"
                             className={`choice-card ${form.regime === 'presencial' ? 'selected' : ''}`}
+                            aria-pressed={form.regime === 'presencial'}
                             onClick={() => { setField('regime', 'presencial'); setField('localConsulta', ''); }}
                           >
                             <MapPin size={28} strokeWidth={1.5} />
@@ -599,6 +664,7 @@ export default function BookingPage() {
                           <button
                             type="button"
                             className={`choice-card ${form.regime === 'online' ? 'selected' : ''}`}
+                            aria-pressed={form.regime === 'online'}
                             onClick={() => { setField('regime', 'online'); setField('localConsulta', ''); }}
                           >
                             <Monitor size={28} strokeWidth={1.5} />
@@ -610,8 +676,8 @@ export default function BookingPage() {
 
                       {form.regime === 'presencial' && (
                         <motion.div className="form-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <p className="field-label">Escolha a clínica</p>
-                          <div className="radio-list">
+                          <p className="field-label" id="lbl-clinica">Escolha a clínica</p>
+                          <div className="radio-list" role="radiogroup" aria-labelledby="lbl-clinica">
                             {CLINICS.map(c => (
                               <label key={c} className={`radio-item ${form.localConsulta === c ? 'selected' : ''}`}>
                                 <input
@@ -656,20 +722,20 @@ export default function BookingPage() {
                   {/* ---- STEP 3: Date & Time ---- */}
                   {step === 3 && (
                     <>
-                      <h2 className="form-step-title">Data & Hora</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Data & Hora</h2>
                       <p className="form-step-sub">
                         {NO_SATURDAY_CLINICS.includes(form.localConsulta)
                           ? 'Seg–Sex 16h00–19h00 · encerrado ao sábado'
                           : 'Seg–Sex 16h00–19h00 · Sáb 09h00–12h00 e 13h00–14h30'}
                       </p>
-                      <div className="tz-badge">🕐 Horário dos Açores (GMT-1)</div>
+                      <TimezoneNote dateStr={form.slotDate} />
 
                       <div className="date-time-layout">
                         <div className="form-section">
                           <p className="field-label">Escolha uma data</p>
                           <CalendarPicker
                             selectedDate={form.slotDate}
-                            onSelect={d => setField('slotDate', d)}
+                            onSelect={d => setForm(prev => ({ ...prev, slotDate: d, slotTime: '' }))}
                             duration={duration}
                             regime={form.regime}
                             localConsulta={form.localConsulta}
@@ -695,15 +761,17 @@ export default function BookingPage() {
                             </div>
                           )}
                           {form.slotDate && !loadingSlots && availableSlots.length > 0 && (
-                            <div className="slots-grid">
+                            <div className="slots-grid" role="group" aria-label={`Horários disponíveis, hora dos Açores`}>
                               {availableSlots.map(slot => (
                                 <button
                                   key={slot}
                                   type="button"
                                   className={`slot-btn ${form.slotTime === slot ? 'selected' : ''}`}
+                                  aria-pressed={form.slotTime === slot}
                                   onClick={() => setField('slotTime', slot)}
                                 >
                                   {slot}
+                                  {localDiff !== 0 && <span className="slot-local">{shiftTime(slot, localDiff)} para si</span>}
                                 </button>
                               ))}
                             </div>
@@ -721,23 +789,26 @@ export default function BookingPage() {
                   {/* ---- STEP 4: Personal Details ---- */}
                   {step === 4 && (
                     <>
-                      <h2 className="form-step-title">Dados Pessoais</h2>
+                      <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Dados Pessoais</h2>
                       <SummaryBar form={form} />
 
                       <div className="personal-grid">
                         <div className="p-field">
-                          <label>Nome completo <span className="req">*</span></label>
+                          <label htmlFor="bk-nome">Nome completo <span className="req">*</span></label>
                           <input
                             type="text"
+                            id="bk-nome"
                             value={form.nome}
                             onChange={e => setField('nome', e.target.value)}
                             placeholder="Nome e apelido"
+                            maxLength={200}
                           />
                         </div>
                         <div className="p-field">
-                          <label>Idade ({form.sujeito === 'bebé' ? 'Meses' : 'Anos'}) <span className="req">*</span></label>
+                          <label htmlFor="bk-idade">Idade ({form.sujeito === 'bebé' ? 'Meses' : 'Anos'}) <span className="req">*</span></label>
                           <input
                             type="text"
+                            id="bk-idade"
                             value={form.idade}
                             onChange={e => setField('idade', e.target.value)}
                             placeholder={form.sujeito === 'bebé' ? 'Ex: 6 meses' : 'Ex: 34'}
@@ -745,37 +816,43 @@ export default function BookingPage() {
                           />
                         </div>
                         <div className="p-field">
-                          <label>Email <span className="req">*</span></label>
+                          <label htmlFor="bk-email">Email <span className="req">*</span></label>
                           <input
                             type="email"
+                            id="bk-email"
                             value={form.email}
                             onChange={e => setField('email', e.target.value)}
-                            placeholder="O teu email"
+                            placeholder="O seu email"
+                            maxLength={200}
                           />
                         </div>
                         <div className="p-field">
-                          <label>Contacto telefónico <span className="req">*</span></label>
+                          <label htmlFor="bk-contacto">Contacto telefónico <span className="req">*</span></label>
                           <input
                             type="tel"
+                            id="bk-contacto"
                             value={form.contacto}
                             onChange={e => setField('contacto', e.target.value)}
                             placeholder="+351 9XX XXX XXX"
+                            maxLength={50}
                           />
                         </div>
                         <div className="p-field full-width">
-                          <label>Contexto sobre a consulta <span className="optional">(opcional)</span></label>
+                          <label htmlFor="bk-contexto">Contexto sobre a consulta <span className="optional">(opcional)</span></label>
                           <textarea
+                            id="bk-contexto"
                             value={form.contexto}
                             onChange={e => setField('contexto', e.target.value)}
                             placeholder="Descreva brevemente o motivo da consulta, dúvidas ou informações relevantes..."
                             rows={4}
+                            maxLength={2000}
                           />
                         </div>
                       </div>
-
-                      {formError && <div className="form-error-msg">{formError}</div>}
                     </>
                   )}
+
+                  {formError && <div className="form-error-msg" role="alert">{formError}</div>}
 
                 </motion.div>
               </AnimatePresence>
@@ -783,7 +860,7 @@ export default function BookingPage() {
               {/* Navigation */}
               <div className="form-nav">
                 {step > 1 && (
-                  <button type="button" className="btn-secondary" onClick={() => setStep(s => s - 1)}>
+                  <button type="button" className="btn-secondary" onClick={() => goToStep(step - 1)}>
                     ← Anterior
                   </button>
                 )}
@@ -792,7 +869,7 @@ export default function BookingPage() {
                     type="button"
                     className="btn-primary"
                     disabled={!canProceed()}
-                    onClick={() => { setFormError(''); setStep(s => s + 1); }}
+                    onClick={() => goToStep(step + 1)}
                   >
                     Seguinte →
                   </button>
@@ -812,15 +889,16 @@ export default function BookingPage() {
           ) : (
 
             // ======= LOOKUP TAB =======
-            <motion.div key="verificar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="verificar" id="booking-panel" role="tabpanel" aria-labelledby="tab-verificar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="lookup-wrapper">
                 <h2 className="lookup-title">Verificar Marcação</h2>
                 <p className="lookup-sub">Introduza a referência (ex: IB-XXXXXXXX) e o email utilizado na marcação.</p>
 
                 <form className="lookup-form" onSubmit={handleLookup}>
                   <div className="p-field">
-                    <label>Referência</label>
+                    <label htmlFor="lk-ref">Referência</label>
                     <input
+                      id="lk-ref"
                       type="text"
                       value={lookupRef}
                       onChange={e => setLookupRef(e.target.value.toUpperCase())}
@@ -829,8 +907,9 @@ export default function BookingPage() {
                     />
                   </div>
                   <div className="p-field">
-                    <label>Email</label>
+                    <label htmlFor="lk-email">Email</label>
                     <input
+                      id="lk-email"
                       type="email"
                       value={lookupEmail}
                       onChange={e => setLookupEmail(e.target.value)}
@@ -838,7 +917,7 @@ export default function BookingPage() {
                       required
                     />
                   </div>
-                  {lookupError && <div className="form-error-msg">{lookupError}</div>}
+                  {lookupError && <div className="form-error-msg" role="alert">{lookupError}</div>}
                   <button type="submit" className="btn-primary" disabled={lookupLoading}>
                     {lookupLoading ? 'A procurar...' : 'Verificar'}
                   </button>
@@ -862,7 +941,7 @@ export default function BookingPage() {
                       <div className="lr-row"><span>Consulta</span><strong>{lookupResult.tipo_consulta}</strong></div>
                       <div className="lr-row"><span>Regime</span><strong>{lookupResult.regime}{lookupResult.local_consulta ? ` — ${lookupResult.local_consulta}` : ''}</strong></div>
                       <div className="lr-row"><span>Data</span><strong>{fmtDate(lookupResult.slot_date)}</strong></div>
-                      <div className="lr-row"><span>Hora</span><strong>{lookupResult.slot_time}</strong></div>
+                      <div className="lr-row"><span>Hora</span><strong>{lookupResult.slot_time} (hora dos Açores)</strong></div>
                       <div className="lr-row"><span>Duração</span><strong>{fmtDuration(lookupResult.duration_minutes)}</strong></div>
                       <div className="lr-row"><span>Preço</span><strong>{lookupResult.price}€</strong></div>
                     </div>
@@ -874,7 +953,7 @@ export default function BookingPage() {
                       </div>
                     )}
 
-                    {(lookupResult.status === 'confirmado' || lookupResult.status === 'pendente') && !cancelConfirm && !editMode && !editSent && (
+                    {(lookupResult.status === 'confirmado' || lookupResult.status === 'pendente') && !lookupIsPast && !cancelConfirm && !editMode && !editSent && (
                       <div className="lr-actions">
                         <button className="btn-outline" onClick={() => setEditMode(true)}>
                           Pedir Alteração
@@ -903,12 +982,14 @@ export default function BookingPage() {
                       <form className="edit-form" onSubmit={handleEditRequest}>
                         <p className="edit-intro">Descreva a alteração pretendida. A nutricionista entrará em contacto para confirmar.</p>
                         <div className="p-field">
-                          <label>Mensagem</label>
+                          <label htmlFor="lk-mensagem">Mensagem</label>
                           <textarea
+                            id="lk-mensagem"
                             value={editMessage}
                             onChange={e => setEditMessage(e.target.value)}
                             placeholder="Ex: Gostaria de alterar para a semana seguinte, de preferência quarta-feira..."
                             rows={3}
+                            maxLength={2000}
                             required
                           />
                         </div>
@@ -945,10 +1026,11 @@ export default function BookingPage() {
           )}
         </AnimatePresence>
       </div>
+      </main>
 
       <footer className="booking-footer">
         <p>IB Nutrição · Inês Bandarra · Nutricionista Materno-Infantil &amp; Pediátrica</p>
-        <p>Ilha Terceira, Açores · <a href="mailto:inesbandarranutricao@gmail.com">inesbandarranutricao@gmail.com</a></p>
+        <p>Ilha Terceira, Açores · <a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a></p>
         <p className="booking-footer-legal">
           <Link to="/politica-de-privacidade">Política de Privacidade</Link>
           <span aria-hidden="true">·</span>

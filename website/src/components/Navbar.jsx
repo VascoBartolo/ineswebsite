@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,12 +17,29 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const burgerRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', handler);
     return () => window.removeEventListener('scroll', handler);
   }, []);
+
+  // Opening the mobile menu moves focus into it; Escape closes it and returns
+  // focus to the burger, so keyboard users never lose their place.
+  useEffect(() => {
+    if (!open) return undefined;
+    panelRef.current?.querySelector('a')?.focus();
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        burgerRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   const handleLink = (e, href) => {
     e.preventDefault();
@@ -31,7 +48,8 @@ export default function Navbar() {
 
     const scrollTo = () => {
       const el = document.querySelector(href);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (el) el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' });
     };
 
     if (location.pathname !== '/') {
@@ -85,14 +103,25 @@ export default function Navbar() {
           </Link>
         </nav>
 
-        <button className="navbar-burger" onClick={() => setOpen(!open)} aria-label="menu">
-          {open ? <X size={24} /> : <Menu size={24} />}
+        <button
+          type="button"
+          ref={burgerRef}
+          className="navbar-burger"
+          onClick={() => setOpen((o) => !o)}
+          aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+          aria-expanded={open}
+          aria-controls="navbar-mobile"
+        >
+          {open ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
         </button>
       </div>
 
       <AnimatePresence>
         {open && (
-          <motion.div
+          <motion.nav
+            id="navbar-mobile"
+            ref={panelRef}
+            aria-label="Menu"
             className="navbar-mobile"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -116,7 +145,7 @@ export default function Navbar() {
             >
               Marcar Consulta
             </Link>
-          </motion.div>
+          </motion.nav>
         )}
       </AnimatePresence>
     </motion.header>

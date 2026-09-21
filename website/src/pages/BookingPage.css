@@ -7,6 +7,14 @@
   flex-direction: column;
 }
 
+/* The <main> landmark wraps hero + container and passes the column layout on,
+   so .booking-container's flex:1 still pushes the footer down. */
+.booking-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .booking-header {
   background: rgba(253, 247, 247, 0.96);
   backdrop-filter: blur(12px);
@@ -210,19 +218,23 @@
   margin-bottom: 1.75rem;
 }
 
-.tz-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: #1a6b8a;
-  color: #fff;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
+.tz-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: #eaf3f7;
+  border-left: 3px solid #1a6b8a;
+  color: var(--text-dark);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
   margin-bottom: 1.25rem;
-  letter-spacing: 0.01em;
 }
+.tz-note svg { color: #1a6b8a; flex-shrink: 0; margin-top: 0.15rem; }
+.tz-note p { margin: 0; }
+.tz-note strong { color: #1a6b8a; }
+.tz-note-local { display: block; margin-top: 0.25rem; font-weight: 600; }
 
 .form-step-sub {
   font-size: 0.875rem;
@@ -482,9 +494,21 @@
   justify-content: center;
   gap: 2px;
   min-height: 42px;
+  /* Day cells are <button>s; drop the native button chrome. */
+  border: none;
+  background: none;
+  font-family: inherit;
+  width: 100%;
+}
+
+.cal-cell:focus-visible {
+  outline: 2px solid var(--crimson);
+  outline-offset: 1px;
 }
 
 .cal-cell.cal-empty { cursor: default; }
+
+.form-step-title:focus { outline: none; }
 
 .cal-cell.cal-available:hover {
   background: var(--blush);
@@ -591,6 +615,14 @@
   border-color: var(--crimson);
   background: var(--crimson);
   color: white;
+}
+
+.slot-local {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.8;
+  margin-top: 0.1rem;
 }
 
 .slots-note {

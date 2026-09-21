@@ -109,6 +109,9 @@ export default function Hero() {
               src="/images/ines-nutri-57.jpg.jpeg"
               alt="Inês Bandarra — Nutricionista"
               className="hero-img"
+              width={1066}
+              height={1600}
+              fetchPriority="high"
             />
           </div>
           <div className="hero-image-deco" />

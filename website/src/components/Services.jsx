@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useInView } from '../hooks/useInView';
-import { BowlFood, Heart, Baby, Stethoscope, FlowerLotus } from '@phosphor-icons/react';
+import { Soup, Heart, Baby, Stethoscope, Flower } from 'lucide-react';
 import './Services.css';
 
 const services = [
   {
-    Icon: FlowerLotus,
+    Icon: Flower,
     title: 'Nutrição Pré-Conceção',
     desc: 'Consultas onde o objetivo é preparar o corpo da mulher para uma gestação, promovendo uma base nutricional saudável desde o início. O pai também é muito importante nesta fase.',
   },
@@ -21,7 +21,7 @@ const services = [
     desc: 'A nutrição no pós-parto foca-se na recuperação da mãe, no aumento de energia, no equilíbrio hormonal e no bem-estar geral, com planos alimentares ajustados a cada fase e individualizados.',
   },
   {
-    Icon: BowlFood,
+    Icon: Soup,
     title: 'Introdução Alimentar & BLW',
     desc: 'Acompanhamento especializado na diversificação alimentar — Baby Led Weaning (BLW), método tradicional e alimentação complementar. Orientação segura para uma introdução aos alimentos positiva e sem stress.',
     highlight: true,
@@ -78,7 +78,7 @@ export default function Services() {
               whileHover={{ y: -6, transition: { duration: 0.2 } }}
             >
               <div className="service-icon-box">
-                <s.Icon size={26} weight="regular" />
+                <s.Icon size={26} strokeWidth={1.75} aria-hidden="true" />
               </div>
               <h3 className="service-title">{s.title}</h3>
               <p className="service-desc">{s.desc}</p>
