@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { ENTITY, LAST_UPDATED, PRACTICE_REGION } from './legalInfo';
+import SkipLink from '../components/SkipLink';
 import './LegalPage.css';
 
 /**
@@ -21,6 +22,7 @@ export default function LegalLayout({ eyebrow, title, documentTitle, children })
 
   return (
     <div className="legal-page">
+      <SkipLink />
       <header className="legal-header">
         <div className="legal-header-inner">
           <Link to="/" className="legal-back-link">
@@ -31,13 +33,15 @@ export default function LegalLayout({ eyebrow, title, documentTitle, children })
         </div>
       </header>
 
-      <div className="legal-hero">
-        <span className="legal-eyebrow">{eyebrow}</span>
-        <h1 className="legal-title">{title}</h1>
-        <p className="legal-updated">Última atualização: {LAST_UPDATED}</p>
-      </div>
+      <main className="legal-main" id="main" tabIndex={-1}>
+        <div className="legal-hero">
+          <span className="legal-eyebrow">{eyebrow}</span>
+          <h1 className="legal-title">{title}</h1>
+          <p className="legal-updated">Última atualização: {LAST_UPDATED}</p>
+        </div>
 
-      <main className="legal-content">{children}</main>
+        <div className="legal-content">{children}</div>
+      </main>
 
       <footer className="legal-footer">
         <p>{ENTITY.brand} · {ENTITY.name} · {ENTITY.role}</p>

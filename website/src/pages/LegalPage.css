@@ -8,6 +8,13 @@
   flex-direction: column;
 }
 
+/* The <main> landmark wraps hero + content and passes the column layout on. */
+.legal-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ===== Header ===== */
 
 .legal-header {

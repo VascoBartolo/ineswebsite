@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'lucide-react';
 import './BookingPage.css';
+import SkipLink from '../components/SkipLink';
 import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 import {
   PRACTICE_TZ, practiceOffset, localMinusPractice, fmtUtcOffset, fmtOffsetDiff, shiftTime, slotInstant,
@@ -459,12 +460,14 @@ export default function BookingPage() {
   if (confirmedBooking) {
     return (
       <div className="booking-page">
+        <SkipLink />
         <div className="booking-header">
           <div className="booking-header-inner">
             <Link to="/" className="back-link"><ArrowLeft size={16} /> Voltar ao início</Link>
             <img src="/images/vermelho.png" alt="IB Nutrição" className="booking-logo" />
           </div>
         </div>
+        <main className="booking-main" id="main" tabIndex={-1}>
         <div className="booking-container">
           <motion.div
             className="success-screen"
@@ -505,6 +508,7 @@ export default function BookingPage() {
             </div>
           </motion.div>
         </div>
+        </main>
       </div>
     );
   }
@@ -513,6 +517,7 @@ export default function BookingPage() {
 
   return (
     <div className="booking-page">
+      <SkipLink />
       <div className="booking-header">
         <div className="booking-header-inner">
           <Link to="/" className="back-link"><ArrowLeft size={16} /> Voltar ao início</Link>
@@ -520,6 +525,7 @@ export default function BookingPage() {
         </div>
       </div>
 
+      <main className="booking-main" id="main" tabIndex={-1}>
       <div className="booking-hero">
         <span className="booking-eyebrow">IB Nutrição</span>
         <h1 className="booking-title">Marcar Consulta</h1>
@@ -1017,6 +1023,7 @@ export default function BookingPage() {
           )}
         </AnimatePresence>
       </div>
+      </main>
 
       <footer className="booking-footer">
         <p>IB Nutrição · Inês Bandarra · Nutricionista Materno-Infantil &amp; Pediátrica</p>

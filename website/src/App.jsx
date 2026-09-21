@@ -7,6 +7,7 @@ import Gallery from './components/Gallery';
 import Testimonials from './components/Testimonials';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
+import SkipLink from './components/SkipLink';
 import BookingPage from './pages/BookingPage';
 import AdminPage from './admin/AdminPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -15,8 +16,9 @@ import TermsConditions from './pages/TermsConditions';
 function HomePage() {
   return (
     <>
+      <SkipLink />
       <Navbar />
-      <main>
+      <main id="main" tabIndex={-1}>
         <Hero />
         <About />
         <Services />
