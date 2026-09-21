@@ -1,13 +1,16 @@
 import os
 import smtplib
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formatdate, make_msgid
 
 import logging
+import pytz
 from markupsafe import escape
 
 import auth
+from calendar_service import TIMEZONE
 
 logger = logging.getLogger("ibnutricao.email")
 
@@ -107,6 +110,23 @@ def _base_style():
     """
 
 
+def _fmt_time(booking):
+    """Slot time with its zone. Slots are Azores wall-clock time and the offset
+    moves with summer time (UTC−1 in winter, UTC+0 in summer), so name both —
+    mainland clients booking online are an hour ahead."""
+    start = pytz.timezone(TIMEZONE).localize(datetime.combine(booking.slot_date, booking.slot_time))
+    minutes = int(start.utcoffset().total_seconds() // 60)
+    hours, mins = divmod(abs(minutes), 60)
+    offset = f"UTC{'−' if minutes < 0 else '+'}{hours}" + (f":{mins:02d}" if mins else "")
+    return f"{booking.slot_time.strftime('%H:%M')} (hora dos Açores, {offset})"
+
+
+def _fmt_time_mainland(booking):
+    """The same moment on the mainland clock, where most online clients are."""
+    start = pytz.timezone(TIMEZONE).localize(datetime.combine(booking.slot_date, booking.slot_time))
+    return f"{start.astimezone(pytz.timezone('Europe/Lisbon')).strftime('%H:%M')} em Portugal continental"
+
+
 def _booking_detail_block(booking):
     regime_info = escape(booking.regime)
     if booking.local_consulta:
@@ -120,7 +140,8 @@ def _booking_detail_block(booking):
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Data</td>
             <td style="padding:5px 0;">{_fmt_date(booking.slot_date)}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Hora</td>
-            <td style="padding:5px 0;">{booking.slot_time.strftime('%H:%M')}</td></tr>
+            <td style="padding:5px 0;">{_fmt_time(booking)}<br>
+                <span style="color:#7A5050;font-size:0.85rem;">{_fmt_time_mainland(booking)}</span></td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Duração</td>
             <td style="padding:5px 0;">{dur}</td></tr>
         <tr><td style="padding:5px 0;color:#7A5050;font-size:0.85rem;">Consulta</td>
