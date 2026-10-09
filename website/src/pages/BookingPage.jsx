@@ -24,12 +24,12 @@ function getPrice(isFirst, regime) {
 }
 
 function getDuration(sujeito, isFirst) {
-  if (sujeito === 'bebé' && isFirst) return 90;
-  return 60;
+  return isFirst ? 60 : 45;
 }
 
 function fmtDuration(min) {
-  return min === 90 ? '1h30m' : '1h';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h && m ? `${h}h${m}m` : h ? `${h}h` : `${m}m`;
 }
 
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -631,7 +631,7 @@ export default function BookingPage() {
                             >
                               <span className="choice-label">Primeira Consulta</span>
                               <span className="choice-sub">
-                                Presencial 55€&nbsp;·&nbsp;Online 50€&nbsp;·&nbsp;{getDuration(form.sujeito, true) === 90 ? '1h30m' : '1h'}
+                                Presencial 55€&nbsp;·&nbsp;Online 50€&nbsp;·&nbsp;{fmtDuration(getDuration(form.sujeito, true))}
                               </span>
                             </button>
                             <button
@@ -641,7 +641,7 @@ export default function BookingPage() {
                               onClick={() => setField('primeiraConsulta', 'seguimento')}
                             >
                               <span className="choice-label">Consulta de Seguimento</span>
-                              <span className="choice-sub">50€&nbsp;·&nbsp;1h</span>
+                              <span className="choice-sub">50€&nbsp;·&nbsp;{fmtDuration(getDuration(form.sujeito, false))}</span>
                             </button>
                           </div>
                         </motion.div>

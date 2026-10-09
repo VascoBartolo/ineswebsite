@@ -23,7 +23,7 @@ WORK_WINDOWS = {
     5: [(time(9, 0), time(12, 0)), (time(13, 0), time(14, 30))],
     6: [],
 }
-SLOT_INTERVAL_MINUTES = 30
+SLOT_INTERVAL_MINUTES = 15
 TRAVEL_BUFFER = timedelta(minutes=30)
 
 

@@ -131,7 +131,8 @@ def _booking_detail_block(booking):
     regime_info = escape(booking.regime)
     if booking.local_consulta:
         regime_info = f"{escape(booking.regime)} — {escape(booking.local_consulta)}"
-    dur = "1h30m" if booking.duration_minutes == 90 else "1h"
+    h, m = divmod(int(booking.duration_minutes), 60)
+    dur = f"{h}h{m}m" if h and m else f"{h}h" if h else f"{m}m"
     return f"""
     <div style="background:white;border-radius:8px;padding:20px;margin:16px 0;border-left:4px solid #B94448;">
       <table style="width:100%;border-collapse:collapse;">
