@@ -119,7 +119,7 @@ export default function Contact() {
               <div className="detail-icon"><Clock size={18} /></div>
               <div>
                 <strong>Horário</strong>
-                <span>Segunda a Sexta, 16h – 19h</span>
+                <span>Segunda a Sexta, 16h30 – 20h30</span>
               </div>
             </div>
             <div className="contact-detail">

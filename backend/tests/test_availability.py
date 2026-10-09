@@ -20,9 +20,10 @@ def test_reference_dates_are_the_weekdays_we_expect():
 
 
 def test_weekday_window_unchanged():
-    """Mon-Fri stays 16:00-19:00."""
+    """Mon-Fri runs 16:30-20:30."""
     assert calendar_service.get_available_slots(MONDAY, 60, []) == [
-        "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00",
+        "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00", "18:15",
+        "18:30", "18:45", "19:00", "19:15", "19:30",
     ]
 
 
@@ -52,7 +53,7 @@ def test_follow_up_fits_right_after_a_first_session():
     }]
     slots = calendar_service.get_available_slots(MONDAY, 45, events, ("online", None))
     assert slots[0] == "17:00"
-    assert slots[-1] == "18:15"
+    assert slots[-1] == "19:45"
 
 
 def test_session_durations():
@@ -91,9 +92,10 @@ def test_bessa_closed_on_saturday():
 
 
 def test_bessa_weekdays_unchanged():
-    """Mon-Fri at Flávia Bessa keeps the normal 16:00-19:00 window."""
+    """Mon-Fri at Flávia Bessa keeps the normal 16:30-20:30 window."""
     assert calendar_service.get_available_slots(MONDAY, 60, [], ("presencial", BESSA)) == [
-        "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00",
+        "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00", "18:15",
+        "18:30", "18:45", "19:00", "19:15", "19:30",
     ]
 
 
@@ -145,7 +147,7 @@ def test_month_availability_zero_for_bessa_saturdays(client):
     assert all(days[d] == 0 for d in saturdays)
 
     mondays = [d for d in days if date.fromisoformat(d).weekday() == 0]
-    assert all(days[d] == 9 for d in mondays)
+    assert all(days[d] == 13 for d in mondays)
 
 
 def test_month_availability_counts(client):
@@ -162,7 +164,7 @@ def test_month_availability_counts(client):
 
     assert days[sat] == 12
     assert days[sun] == 0
-    assert days[mon] == 9
+    assert days[mon] == 13
 
 
 def test_month_availability_marks_past_days_zero(client):
