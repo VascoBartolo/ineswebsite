@@ -186,7 +186,7 @@ function TimezoneNote({ dateStr }) {
         {diff !== 0 && (
           <span className="tz-note-local">
             {' '}A sua hora local está {fmtOffsetDiff(diff)} {diff > 0 ? 'à frente' : 'atrás'}:
-            {' '}16:00 nos Açores são {shiftTime('16:00', diff)} para si.
+            {' '}16:30 nos Açores são {shiftTime('16:30', diff)} para si.
           </span>
         )}
       </p>
@@ -731,8 +731,8 @@ export default function BookingPage() {
                       <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Data & Hora</h2>
                       <p className="form-step-sub">
                         {NO_SATURDAY_CLINICS.includes(form.localConsulta)
-                          ? 'Seg–Sex 16h00–19h00 · encerrado ao sábado'
-                          : 'Seg–Sex 16h00–19h00 · Sáb 09h00–12h00 e 13h00–14h30'}
+                          ? 'Seg–Sex 16h30–20h30 · encerrado ao sábado'
+                          : 'Seg–Sex 16h30–20h30 · Sáb 09h00–12h00 e 13h00–14h30'}
                       </p>
                       <TimezoneNote dateStr={form.slotDate} />
 

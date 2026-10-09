@@ -15,11 +15,11 @@ CREDENTIALS_FILE = os.environ.get("GOOGLE_CREDENTIALS_FILE", "/app/credentials.j
 # Working windows per weekday (Mon=0 … Sun=6). A day may have several windows;
 # Saturday runs mornings plus a short afternoon block.
 WORK_WINDOWS = {
-    0: [(time(16, 0), time(19, 0))],
-    1: [(time(16, 0), time(19, 0))],
-    2: [(time(16, 0), time(19, 0))],
-    3: [(time(16, 0), time(19, 0))],
-    4: [(time(16, 0), time(19, 0))],
+    0: [(time(16, 30), time(20, 30))],
+    1: [(time(16, 30), time(20, 30))],
+    2: [(time(16, 30), time(20, 30))],
+    3: [(time(16, 30), time(20, 30))],
+    4: [(time(16, 30), time(20, 30))],
     5: [(time(9, 0), time(12, 0)), (time(13, 0), time(14, 30))],
     6: [],
 }
