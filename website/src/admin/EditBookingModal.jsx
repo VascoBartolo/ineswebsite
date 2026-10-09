@@ -143,7 +143,7 @@ export default function EditBookingModal({ booking, create = false, locations = 
             </select></div>
           <div className="fld"><label htmlFor="em-duration">Duração</label>
             <select id="em-duration" value={form.duration_minutes} onChange={set('duration_minutes')}>
-              <option value={60}>1h</option><option value={90}>1h30</option>
+              <option value={45}>45m</option><option value={60}>1h</option><option value={90}>1h30</option>
             </select></div>
           {form.regime === 'presencial' && (
             <div className="fld"><label htmlFor="em-local">Local</label>

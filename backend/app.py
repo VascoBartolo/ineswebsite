@@ -142,10 +142,8 @@ def compute_price(is_first: bool, regime: str) -> float:
 
 
 def compute_duration(sujeito: str, is_first: bool) -> int:
-    """Babies' first consultation is 90 min; everything else is 60 min."""
-    if sujeito.lower() == "bebé" and is_first:
-        return 90
-    return 60
+    """First consultation is 60 min (adults and babies); follow-ups are 45 min."""
+    return 60 if is_first else 45
 
 
 def db_busy_intervals_range(start_date, end_date):

@@ -12,7 +12,7 @@ function fmtDate(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' });
 }
-function fmtDur(m) { return m === 90 ? '1h30' : '1h'; }
+function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h && m ? `${h}h${m}` : h ? `${h}h` : `${m}m`; }
 
 const EMPTY_RESULT = { bookings: [], summary: {}, pagination: { total: 0, pages: 1, per_page: 30 } };
 

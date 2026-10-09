@@ -22,22 +22,45 @@ def test_reference_dates_are_the_weekdays_we_expect():
 def test_weekday_window_unchanged():
     """Mon-Fri stays 16:00-19:00."""
     assert calendar_service.get_available_slots(MONDAY, 60, []) == [
-        "16:00", "16:30", "17:00", "17:30", "18:00",
+        "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00",
     ]
 
 
 def test_saturday_has_morning_and_afternoon_windows():
     """Saturday: 09:00-12:00 and 13:00-14:30."""
     assert calendar_service.get_available_slots(SATURDAY, 60, []) == [
-        "09:00", "09:30", "10:00", "10:30", "11:00", "13:00", "13:30",
+        "09:00", "09:15", "09:30", "09:45", "10:00", "10:15", "10:30", "10:45", "11:00",
+        "13:00", "13:15", "13:30",
     ]
 
 
-def test_saturday_90min_fits_the_afternoon_window():
-    """A 90-min first consultation fits 13:00-14:30 exactly."""
-    assert calendar_service.get_available_slots(SATURDAY, 90, []) == [
-        "09:00", "09:30", "10:00", "10:30", "13:00",
+def test_saturday_45min_follow_up_slots():
+    """A 45-min follow-up fits until 11:15 and 13:45, in 15-min steps."""
+    assert calendar_service.get_available_slots(SATURDAY, 45, []) == [
+        "09:00", "09:15", "09:30", "09:45", "10:00", "10:15", "10:30", "10:45", "11:00", "11:15",
+        "13:00", "13:15", "13:30", "13:45",
     ]
+
+
+def test_follow_up_fits_right_after_a_first_session():
+    """With 15-min steps a 45-min follow-up can start when a 1h session ends."""
+    from datetime import datetime, time
+    events = [{
+        "start_dt": datetime.combine(MONDAY, time(16, 0)),
+        "end_dt": datetime.combine(MONDAY, time(17, 0)),
+        "location": ("online", None),
+    }]
+    slots = calendar_service.get_available_slots(MONDAY, 45, events, ("online", None))
+    assert slots[0] == "17:00"
+    assert slots[-1] == "18:15"
+
+
+def test_session_durations():
+    from app import compute_duration
+    assert compute_duration("adulto", True) == 60
+    assert compute_duration("bebé", True) == 60
+    assert compute_duration("adulto", False) == 45
+    assert compute_duration("bebé", False) == 45
 
 
 def test_sunday_closed():
@@ -70,13 +93,16 @@ def test_bessa_closed_on_saturday():
 def test_bessa_weekdays_unchanged():
     """Mon-Fri at Flávia Bessa keeps the normal 16:00-19:00 window."""
     assert calendar_service.get_available_slots(MONDAY, 60, [], ("presencial", BESSA)) == [
-        "16:00", "16:30", "17:00", "17:30", "18:00",
+        "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00",
     ]
 
 
 def test_saturday_unchanged_for_other_options():
     """The Saturday closure is scoped to Flávia Bessa only."""
-    full_saturday = ["09:00", "09:30", "10:00", "10:30", "11:00", "13:00", "13:30"]
+    full_saturday = [
+        "09:00", "09:15", "09:30", "09:45", "10:00", "10:15", "10:30", "10:45", "11:00",
+        "13:00", "13:15", "13:30",
+    ]
     assert calendar_service.get_available_slots(SATURDAY, 60, [], ("presencial", MANUS)) == full_saturday
     assert calendar_service.get_available_slots(SATURDAY, 60, [], ("online", None)) == full_saturday
     # No location narrowed yet (clinic not picked): still the full Saturday.
@@ -119,7 +145,7 @@ def test_month_availability_zero_for_bessa_saturdays(client):
     assert all(days[d] == 0 for d in saturdays)
 
     mondays = [d for d in days if date.fromisoformat(d).weekday() == 0]
-    assert all(days[d] == 5 for d in mondays)
+    assert all(days[d] == 9 for d in mondays)
 
 
 def test_month_availability_counts(client):
@@ -134,9 +160,9 @@ def test_month_availability_counts(client):
     sun = next(d for d in days if date.fromisoformat(d).weekday() == 6)
     mon = next(d for d in days if date.fromisoformat(d).weekday() == 0)
 
-    assert days[sat] == 7
+    assert days[sat] == 12
     assert days[sun] == 0
-    assert days[mon] == 5
+    assert days[mon] == 9
 
 
 def test_month_availability_marks_past_days_zero(client):
