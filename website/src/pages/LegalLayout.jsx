@@ -24,7 +24,7 @@ export default function LegalLayout({ eyebrow, title, documentTitle, children })
             <ArrowLeft size={16} />
             Voltar ao site
           </Link>
-          <img src="/images/vermelho.png" alt={ENTITY.brand} className="legal-logo" />
+          <img src="/images/vermelho-128.webp" alt={ENTITY.brand} className="legal-logo" />
         </div>
       </header>
 

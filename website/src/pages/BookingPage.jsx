@@ -473,7 +473,7 @@ export default function BookingPage() {
         <div className="booking-header">
           <div className="booking-header-inner">
             <Link to="/" className="back-link"><ArrowLeft size={16} /> Voltar ao início</Link>
-            <img src="/images/vermelho.png" alt="IB Nutrição" className="booking-logo" />
+            <img src="/images/vermelho-128.webp" alt="IB Nutrição" className="booking-logo" />
           </div>
         </div>
         <main className="booking-main" id="main" tabIndex={-1}>
@@ -530,7 +530,7 @@ export default function BookingPage() {
       <div className="booking-header">
         <div className="booking-header-inner">
           <Link to="/" className="back-link"><ArrowLeft size={16} /> Voltar ao início</Link>
-          <img src="/images/vermelho.png" alt="IB Nutrição" className="booking-logo" />
+          <img src="/images/vermelho-128.webp" alt="IB Nutrição" className="booking-logo" />
         </div>
       </div>
 

@@ -84,7 +84,7 @@ export default function Navbar() {
     >
       <div className="navbar-inner">
         <a href="/" className="navbar-logo" onClick={handleLogoClick}>
-          <img src="/images/vermelho.png" alt="IB Nutrição" />
+          <img src="/images/vermelho-128.webp" alt="IB Nutrição" />
         </a>
 
         <nav className="navbar-links">

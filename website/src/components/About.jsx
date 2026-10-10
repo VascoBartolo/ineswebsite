@@ -44,11 +44,13 @@ export default function About() {
         >
           <div className="about-img-stack">
             <div className="about-img-main">
-              <img src="/images/ines-nutri-177-2.jpg.jpeg" alt="Inês Bandarra — Nutricionista Pediátrica nos Açores"
+              <img src="/images/ines-nutri-177-2-640.webp"
+                   srcSet="/images/ines-nutri-177-2-640.webp 640w, /images/ines-nutri-177-2-1066.webp 1066w"
+                   sizes="(max-width: 600px) 290px, 440px" alt="Inês Bandarra — Nutricionista Pediátrica nos Açores"
                    width={1066} height={1600} loading="lazy" decoding="async" />
             </div>
             <div className="about-img-accent">
-              <img src="/images/ines-nutri-159.jpg.jpeg" alt="Consulta de nutrição materno-infantil"
+              <img src="/images/ines-nutri-159-640.webp" alt="Consulta de nutrição materno-infantil"
                    width={1066} height={1600} loading="lazy" decoding="async" />
             </div>
           </div>
