@@ -50,7 +50,7 @@ export default function Contact() {
         setError('Erro ao enviar a mensagem. Por favor tente novamente.');
       }
     } catch {
-      setError('Erro de ligação. Verifica a tua conexão e tenta novamente.');
+      setError('Erro de ligação. Verifique a sua conexão e tente novamente.');
     } finally {
       setSending(false);
     }
@@ -84,7 +84,7 @@ export default function Contact() {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            Estou aqui para responder às tuas dúvidas e agendar a tua consulta.
+            Estou aqui para responder às suas dúvidas e agendar a sua consulta.
             Entra em contacto por qualquer um dos canais abaixo.
           </motion.p>
 
@@ -154,7 +154,7 @@ export default function Contact() {
                     id="name"
                     name="name"
                     type="text"
-                    placeholder="O teu nome"
+                    placeholder="O seu nome"
                     value={form.name}
                     onChange={handleChange}
                     required
@@ -166,7 +166,7 @@ export default function Contact() {
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="O teu email"
+                    placeholder="O seu email"
                     value={form.email}
                     onChange={handleChange}
                     required
