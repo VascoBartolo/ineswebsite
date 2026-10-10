@@ -4,17 +4,17 @@ import './Gallery.css';
 
 const images = [
   {
-    src: '/images/baby3.jpg',
+    src: '/images/baby3-800.webp',
     alt: 'Momento de introdução alimentar',
     span: 'normal',
   },
   {
-    src: '/images/baby2.jpg',
+    src: '/images/baby2-800.webp',
     alt: 'Bebé a explorar novos alimentos',
     span: 'normal',
   },
   {
-    src: '/images/baby1.jpg',
+    src: '/images/baby1-800.webp',
     alt: 'Refeição de bebé',
     span: 'normal',
   },

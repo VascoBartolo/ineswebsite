@@ -20,7 +20,7 @@ export default function AdminDashboard({ onLogout }) {
     <div className="admin">
       <header className="admin-top">
         <div className="admin-brand">
-          <img src="/images/vermelho.png" alt="IB Nutrição" />
+          <img src="/images/vermelho-128.webp" alt="IB Nutrição" />
           <div>
             <span className="admin-brand-name">IB Nutrição</span>
             <small>Painel de Administração</small>

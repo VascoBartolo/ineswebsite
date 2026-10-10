@@ -100,13 +100,15 @@ export default function Hero() {
 
         <motion.div
           className="hero-image-wrapper"
-          initial={{ opacity: 0, scale: 0.92, x: 40 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
+          initial={{ scale: 0.92, x: 40 }}
+          animate={{ scale: 1, x: 0 }}
           transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="hero-image-frame">
             <img
-              src="/images/ines-nutri-57.jpg.jpeg"
+              src="/images/ines-nutri-57-640.webp"
+              srcSet="/images/ines-nutri-57-640.webp 640w, /images/ines-nutri-57-1066.webp 1066w"
+              sizes="(max-width: 600px) 320px, 500px"
               alt="Inês Bandarra — Nutricionista"
               className="hero-img"
               width={1066}

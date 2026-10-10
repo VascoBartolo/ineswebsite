@@ -31,7 +31,7 @@ export default function Footer() {
     <footer className="footer">
       <div className="footer-inner">
         <div className="footer-brand">
-          <img src="/images/vermelho.png" alt="IB Nutrição" className="footer-logo" />
+          <img src="/images/vermelho-128.webp" alt="IB Nutrição" className="footer-logo" />
           <p className="footer-tagline">
             Nutrição materno-infantil com amor e ciência,<br />
             na Ilha Terceira, Açores.

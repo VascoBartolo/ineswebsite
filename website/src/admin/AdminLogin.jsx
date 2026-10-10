@@ -26,7 +26,7 @@ export default function AdminLogin({ onSuccess }) {
   return (
     <div className="admin-login">
       <form className="admin-login-card" onSubmit={submit}>
-        <img src="/images/vermelho.png" alt="IB Nutrição" className="admin-login-logo" />
+        <img src="/images/vermelho-128.webp" alt="IB Nutrição" className="admin-login-logo" />
         <h1>Painel de Administração</h1>
         <p>Introduz a palavra-passe para continuar.</p>
         <input
