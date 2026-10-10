@@ -50,7 +50,7 @@ export default function Contact() {
         setError('Erro ao enviar a mensagem. Por favor tente novamente.');
       }
     } catch {
-      setError('Erro de ligação. Verifica a tua conexão e tenta novamente.');
+      setError('Erro de ligação. Verifique a sua conexão e tente novamente.');
     } finally {
       setSending(false);
     }
@@ -84,8 +84,8 @@ export default function Contact() {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            Estou aqui para responder às tuas dúvidas e agendar a tua consulta.
-            Entra em contacto por qualquer um dos canais abaixo.
+            Estou aqui para responder às suas dúvidas e agendar a sua consulta.
+            Entre em contacto por qualquer um dos canais abaixo.
           </motion.p>
 
           <motion.div
@@ -146,7 +146,7 @@ export default function Contact() {
             </div>
           ) : (
             <form className="contact-form" onSubmit={handleSubmit}>
-              <h3 className="form-title">Entra em contacto comigo</h3>
+              <h3 className="form-title">Entre em contacto comigo</h3>
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="name">Nome</label>
@@ -154,7 +154,7 @@ export default function Contact() {
                     id="name"
                     name="name"
                     type="text"
-                    placeholder="O teu nome"
+                    placeholder="O seu nome"
                     value={form.name}
                     onChange={handleChange}
                     required
@@ -166,7 +166,7 @@ export default function Contact() {
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="O teu email"
+                    placeholder="O seu email"
                     value={form.email}
                     onChange={handleChange}
                     required
