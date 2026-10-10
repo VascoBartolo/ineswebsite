@@ -85,7 +85,7 @@ export default function Contact() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             Estou aqui para responder às suas dúvidas e agendar a sua consulta.
-            Entra em contacto por qualquer um dos canais abaixo.
+            Entre em contacto por qualquer um dos canais abaixo.
           </motion.p>
 
           <motion.div
@@ -146,7 +146,7 @@ export default function Contact() {
             </div>
           ) : (
             <form className="contact-form" onSubmit={handleSubmit}>
-              <h3 className="form-title">Entra em contacto comigo</h3>
+              <h3 className="form-title">Entre em contacto comigo</h3>
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="name">Nome</label>
