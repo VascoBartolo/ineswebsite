@@ -46,7 +46,7 @@ export default function Services() {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6 }}
           >
-            Como te posso ajudar
+            Como posso ajudar
           </motion.span>
           <motion.h2
             className="section-title"
@@ -54,7 +54,7 @@ export default function Services() {
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            Serviços de nutrição pensados <em>para a tua família</em>
+            Serviços de nutrição pensados <em>para a sua família</em>
           </motion.h2>
           <motion.p
             className="services-subtitle"
