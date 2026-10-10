@@ -46,11 +46,11 @@ const faqs = [
   },
   {
     q: 'O que é o BLW (Baby Led Weaning)?',
-    a: 'BLW, ou Baby Led Weaning, é uma abordagem de introdução alimentar em que o bebé explora os alimentos sólidos de forma autónoma, ao seu próprio ritmo. É uma alternativa aos purés que promove a autorregulação e uma relação positiva com a comida desde cedo. Contudo, o melhor método é aquele que se adapta à tua família!',
+    a: 'BLW, ou Baby Led Weaning, é uma abordagem de introdução alimentar em que o bebé explora os alimentos sólidos de forma autónoma, ao seu próprio ritmo. É uma alternativa aos purés que promove a autorregulação e uma relação positiva com a comida desde cedo. Contudo, o melhor método é aquele que se adapta à sua família!',
   },
   {
     q: 'Como funciona a consulta e o acompanhamento?',
-    a: 'Cada consulta é adaptada às tuas necessidades e à fase em que te encontras. Em conjunto, definimos objetivos e estratégias nutricionais ajustadas à tua rotina, preferências e realidade. O acompanhamento é contínuo e personalizado, permitindo esclarecer dúvidas, ajustar o plano sempre que necessário e apoiar-te em cada etapa, de forma prática, simples e sempre baseada na evidência científica.',
+    a: 'Cada consulta é adaptada às suas necessidades e à fase em que se encontra. Em conjunto, definimos objetivos e estratégias nutricionais ajustadas à sua rotina, preferências e realidade. O acompanhamento é contínuo e personalizado, permitindo esclarecer dúvidas, ajustar o plano sempre que necessário e dar apoio em cada etapa, de forma prática, simples e sempre baseada na evidência científica.',
   },
 ];
 
