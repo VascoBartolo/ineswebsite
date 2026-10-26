@@ -32,8 +32,11 @@ export const PRACTICE_REGION = 'Angra do Heroísmo, Ilha Terceira, Açores, Port
 
 // Shown as "last updated" on both pages. Update whenever the text changes.
 export const LAST_UPDATED = '26 de outubro de 2026';
+// Version of the Terms + Privacy Policy a client accepts when booking; recorded on
+// each booking. Bump with LAST_UPDATED, in lockstep with backend/legal.py.
+export const TERMS_VERSION = '2026-10-26';
 
-// Minimum notice, in hours, for a client to cancel or reschedule without the
-// consultation counting as a missed appointment. Stated in the Terms.
+// Minimum notice, in hours, for a client cancellation to be refunded (Terms §8).
+// Must match CANCELLATION_NOTICE_HOURS in backend/legal.py, which enforces it.
 // TODO: confirm this matches the policy actually applied in practice.
 export const CANCELLATION_NOTICE_HOURS = 24;
