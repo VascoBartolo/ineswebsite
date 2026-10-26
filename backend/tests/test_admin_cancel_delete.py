@@ -12,7 +12,7 @@ def test_cancel_sets_status_and_emails(client, app, monkeypatch):
     monkeypatch.setattr(admin_routes.calendar_service, "delete_event",
                         lambda eid: seen.__setitem__("deleted", seen["deleted"] + 1))
     monkeypatch.setattr(admin_routes.email_service, "send_booking_cancelled_client",
-                        lambda b: seen.__setitem__("client", 1))
+                        lambda b, refunded=0: seen.__setitem__("client", 1))
     monkeypatch.setattr(admin_routes.email_service, "send_nutritionist_cancellation",
                         lambda b: seen.__setitem__("nutri", 1))
     with app.app_context():

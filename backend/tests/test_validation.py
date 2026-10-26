@@ -36,7 +36,7 @@ def test_enums_match_frontend_constants():
     ({"sujeito": "gato"}, "sujeito"),
     ({"regime": "telefone"}, "regime"),
     ({"tipo_consulta": "introdução alimentar"}, "tipo_consulta"),  # a bebé type for an adulto
-    ({"regime": "presencial"}, "local_consulta"),
+    ({"local_consulta": None}, "local_consulta"),
     ({"regime": "presencial", "local_consulta": "Clínica Inventada"}, "local_consulta"),
 ])
 def test_public_booking_rejects_unknown_choices(client, monkeypatch, over, field):

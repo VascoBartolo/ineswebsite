@@ -165,7 +165,18 @@ if (-not $backendExists) {
     }
     az containerapp update -n $BackendApp -g $ResourceGroup --image $backendRef --only-show-errors | Out-Null
 }
-$backendFqdn = az containerapp show -n $BackendApp -g $ResourceGroup --query "properties.configuration.ingress.fqdn" -o tsv
+# Stripe keys only when present in backend/.env, so a re-run without them never
+# blanks the live keys (the same footgun the database-url guard above prevents).
+if ($cfg['STRIPE_SECRET_KEY'] -and $cfg['STRIPE_WEBHOOK_SECRET']) {
+    az containerapp secret set -n $BackendApp -g $ResourceGroup `
+        --secrets "stripe-secret-key=$($cfg['STRIPE_SECRET_KEY'])" "stripe-webhook-secret=$($cfg['STRIPE_WEBHOOK_SECRET'])" --only-show-errors | Out-Null
+    az containerapp update -n $BackendApp -g $ResourceGroup `
+        --set-env-vars "STRIPE_SECRET_KEY=secretref:stripe-secret-key" "STRIPE_WEBHOOK_SECRET=secretref:stripe-webhook-secret" `
+        --only-show-errors | Out-Null
+} else {
+    Write-Host "No STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET in backend/.env; Stripe secrets left untouched." -ForegroundColor Yellow
+}
+$backendFqdn =az containerapp show -n $BackendApp -g $ResourceGroup --query "properties.configuration.ingress.fqdn" -o tsv
 
 # ---------------------------------------------------------------------------
 # 6. Frontend app (external ingress). nginx proxies /api over HTTPS to the

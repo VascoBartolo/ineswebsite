@@ -32,19 +32,22 @@ CLINICS = (
     "Clínica Manus (Angra do Heroísmo)",
     "Centro de Psicologia Flávia Bessa (Angra do Heroísmo)",
 )
-STATUSES = ("pendente", "confirmado", "revisao", "cancelado")
+STATUSES = ("pendente", "confirmado", "revisao", "cancelado", "aguarda_pagamento")
 
 
 class BadInput(Exception):
-    def __init__(self, error, field=None):
+    def __init__(self, error, field=None, message=None):
         super().__init__(error)
         self.error = error
         self.field = field
+        self.message = message
 
     def to_dict(self):
         body = {"error": self.error}
         if self.field:
             body["field"] = self.field
+        if self.message:
+            body["message"] = self.message
         return body
 
 

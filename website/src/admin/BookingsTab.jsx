@@ -5,12 +5,23 @@ import ConfirmModal from './ConfirmModal';
 import Toast from './Toast';
 
 const REGIME_LABEL = { presencial: 'Presencial', online: 'Online' };
-const STATUS_LABEL = { pendente: 'Pendente', confirmado: 'Confirmado', revisao: 'Necessita Alteração', cancelado: 'Cancelado' };
-const STATUS_CLS = { pendente: 'pend', confirmado: 'ok', revisao: 'rev', cancelado: 'canc' };
+const STATUS_LABEL = { pendente: 'Pendente', confirmado: 'Confirmado', revisao: 'Necessita Alteração', cancelado: 'Cancelado', aguarda_pagamento: 'A aguardar pagamento' };
+const STATUS_CLS = { pendente: 'pend', confirmado: 'ok', revisao: 'rev', cancelado: 'canc', aguarda_pagamento: 'pend' };
+const PAY_LABEL = { pending: 'A aguardar pagamento', authorized: 'Cativo', paid: 'Pago', refunded: 'Reembolsado', released: 'Cativação anulada', expired: 'Checkout expirado' };
 
 function fmtDate(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+// capture_before is naive UTC from the API; shown in practice time.
+function fmtDeadline(iso) {
+  return new Date(iso + 'Z').toLocaleString('pt-PT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Azores' });
+}
+function payLine(b) {
+  let s = `${PAY_LABEL[b.payment_status] || b.payment_status}${b.payment_method_type ? ` (${b.payment_method_type})` : ''}`;
+  if (b.payment_status === 'paid' && b.amount_refunded > 0) s += ` · reembolsado ${b.amount_refunded}€`;
+  if (['pendente', 'revisao'].includes(b.status) && b.capture_before) s += ` · confirmar até ${fmtDeadline(b.capture_before)}`;
+  return s;
 }
 function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h && m ? `${h}h${m}` : h ? `${h}h` : `${m}m`; }
 
@@ -28,6 +39,9 @@ export default function BookingsTab() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [pendingCancel, setPendingCancel] = useState(null);
   const [notifyCancel, setNotifyCancel] = useState(true);
+  const [cancelRefund, setCancelRefund] = useState({ on: true, amount: '' });
+  const [pendingRefund, setPendingRefund] = useState(null);
+  const [refund, setRefund] = useState({ amount: '', notify: true });
   const [busyAction, setBusyAction] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
   const [loaded, setLoaded] = useState({ key: null, result: EMPTY_RESULT });
@@ -89,18 +103,36 @@ export default function BookingsTab() {
       clear(null);
       setToast({ message: done, tone: 'ok' });
       load();
-    } catch {
-      setToast({ message: failed, tone: 'err' });
+    } catch (e) {
+      setToast({ message: e?.body?.message ? `${failed} ${e.body.message}` : failed, tone: 'err' });
     } finally {
       setBusyAction(false);
     }
   };
 
+  const openCancel = (b) => {
+    setNotifyCancel(true);
+    setCancelRefund({ on: true, amount: String(b.refundable) });
+    setPendingCancel(b);
+  };
+  const cancelRefundOn = pendingCancel?.refundable > 0 && cancelRefund.on;
   const cancel = () => runAction(
-    pendingCancel, (ref) => adminApi.cancelBooking(ref, notifyCancel),
-    `Marcação ${pendingCancel} cancelada.`,
-    `Não foi possível cancelar a marcação ${pendingCancel}.`,
+    pendingCancel.reference,
+    (ref) => adminApi.cancelBooking(ref, notifyCancel, cancelRefundOn, cancelRefundOn ? Number(cancelRefund.amount) : null),
+    `Marcação ${pendingCancel.reference} cancelada.`,
+    `Não foi possível cancelar a marcação ${pendingCancel.reference}.`,
     setPendingCancel,
+  );
+
+  const openRefund = (b) => {
+    setRefund({ amount: String(b.refundable), notify: true });
+    setPendingRefund(b);
+  };
+  const issueRefund = () => runAction(
+    pendingRefund.reference, (ref) => adminApi.refundBooking(ref, Number(refund.amount), refund.notify),
+    `Reembolso de ${refund.amount}€ emitido para ${pendingRefund.reference}.`,
+    `Não foi possível reembolsar ${pendingRefund.reference}.`,
+    setPendingRefund,
   );
 
   const remove = () => runAction(
@@ -155,11 +187,12 @@ export default function BookingsTab() {
                 <td data-label="Cliente">{b.nome}<div className="sub">{b.email} · {b.contacto}</div></td>
                 <td data-label="Consulta">{b.tipo_consulta}<div className="sub">{b.sujeito} · {b.idade}</div></td>
                 <td data-label="Regime"><span className={`pill ${b.regime === 'online' ? 'onl' : 'pres'}`}>{REGIME_LABEL[b.regime] || b.regime}</span>{b.local_consulta && <div className="sub">{b.local_consulta}</div>}</td>
-                <td data-label="Preço">{Number(b.price).toFixed(0)}€</td>
+                <td data-label="Preço">{Number(b.price).toFixed(0)}€{b.payment_status && <div className="sub">{payLine(b)}</div>}</td>
                 <td data-label="Estado"><span className={`pill ${STATUS_CLS[b.status] || 'ok'}`}>{STATUS_LABEL[b.status] || b.status}</span></td>
                 <td data-label="Ações"><div className="acts">
                   <button type="button" className="ic" title="Editar" aria-label={`Editar ${b.reference}`} onClick={() => setEditing(b)}>✎</button>
-                  {b.status !== 'cancelado' && <button type="button" className="ic" title="Cancelar" aria-label={`Cancelar ${b.reference}`} onClick={() => { setNotifyCancel(true); setPendingCancel(b.reference); }}>⊘</button>}
+                  {b.status !== 'cancelado' && <button type="button" className="ic" title="Cancelar" aria-label={`Cancelar ${b.reference}`} onClick={() => openCancel(b)}>⊘</button>}
+                  {b.refundable > 0 && <button type="button" className="ic" title="Reembolsar" aria-label={`Reembolsar ${b.reference}`} onClick={() => openRefund(b)}>↩</button>}
                   <button type="button" className="ic" title="Eliminar" aria-label={`Eliminar ${b.reference}`} onClick={() => setPendingDelete(b.reference)}>🗑</button>
                 </div></td>
               </tr>
@@ -209,13 +242,47 @@ export default function BookingsTab() {
       {pendingCancel && (
         <ConfirmModal
           title="Cancelar marcação"
-          body={`A marcação ${pendingCancel} será cancelada.`}
+          body={`A marcação ${pendingCancel.reference} será cancelada.${pendingCancel.payment_status === 'authorized' ? ' A cativação do pagamento será anulada.' : ''}`}
           confirmLabel="Cancelar marcação" cancelLabel="Voltar" danger busy={busyAction}
           onConfirm={cancel}
           onCancel={() => setPendingCancel(null)}
         >
           <label className="modal-check">
             <input type="checkbox" checked={notifyCancel} onChange={(e) => setNotifyCancel(e.target.checked)} disabled={busyAction} />
+            Notificar o cliente por email
+          </label>
+          {pendingCancel.refundable > 0 && (
+            <>
+              <label className="modal-check">
+                <input type="checkbox" checked={cancelRefund.on} disabled={busyAction}
+                       onChange={(e) => setCancelRefund((r) => ({ ...r, on: e.target.checked }))} />
+                Reembolsar o cliente
+              </label>
+              {cancelRefund.on && (
+                <div className="fld"><label htmlFor="cancel-amount">Valor a reembolsar (máx. {pendingCancel.refundable}€)</label>
+                  <input id="cancel-amount" type="number" min="0.01" step="0.01" max={pendingCancel.refundable}
+                         value={cancelRefund.amount} disabled={busyAction}
+                         onChange={(e) => setCancelRefund((r) => ({ ...r, amount: e.target.value }))} /></div>
+              )}
+            </>
+          )}
+        </ConfirmModal>
+      )}
+      {pendingRefund && (
+        <ConfirmModal
+          title="Reembolsar"
+          body={`Reembolso para ${pendingRefund.nome} (${pendingRefund.reference}), para o meio de pagamento utilizado. Esta ação não pode ser revertida.`}
+          confirmLabel="Reembolsar" cancelLabel="Voltar" danger busy={busyAction}
+          onConfirm={issueRefund}
+          onCancel={() => setPendingRefund(null)}
+        >
+          <div className="fld"><label htmlFor="refund-amount">Valor (máx. {pendingRefund.refundable}€)</label>
+            <input id="refund-amount" type="number" min="0.01" step="0.01" max={pendingRefund.refundable}
+                   value={refund.amount} disabled={busyAction}
+                   onChange={(e) => setRefund((r) => ({ ...r, amount: e.target.value }))} /></div>
+          <label className="modal-check">
+            <input type="checkbox" checked={refund.notify} disabled={busyAction}
+                   onChange={(e) => setRefund((r) => ({ ...r, notify: e.target.checked }))} />
             Notificar o cliente por email
           </label>
         </ConfirmModal>

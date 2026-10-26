@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { ENTITY, LAST_UPDATED, PRACTICE_REGION } from './legalInfo';
+import { ENTITY, LAST_UPDATED, PRACTICE_REGION, TERMS_VERSION } from './legalInfo';
 import SkipLink from '../components/SkipLink';
 import { usePageTitle } from '../hooks/usePageTitle';
 import './LegalPage.css';
@@ -32,7 +32,7 @@ export default function LegalLayout({ eyebrow, title, documentTitle, children })
         <div className="legal-hero">
           <span className="legal-eyebrow">{eyebrow}</span>
           <h1 className="legal-title">{title}</h1>
-          <p className="legal-updated">Última atualização: {LAST_UPDATED}</p>
+          <p className="legal-updated">Última atualização: {LAST_UPDATED} · Versão {TERMS_VERSION}</p>
         </div>
 
         <div className="legal-content">{children}</div>

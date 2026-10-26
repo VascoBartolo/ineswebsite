@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, Euro, MapPin, Monitor, User, CheckCircle } from 'luci
 import './BookingPage.css';
 import SkipLink from '../components/SkipLink';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { ENTITY } from './legalInfo';
+import { ENTITY, CANCELLATION_NOTICE_HOURS } from './legalInfo';
 import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 import {
   PRACTICE_TZ, practiceOffset, localMinusPractice, fmtUtcOffset, fmtOffsetDiff, shiftTime, slotInstant,
@@ -50,8 +50,31 @@ function bookingStatusInfo(b) {
     case 'confirmado': return { label: 'Confirmado', cls: 'confirmado' };
     case 'revisao':    return { label: 'Necessita Alteração', cls: 'revisao' };
     case 'cancelado':  return { label: 'Cancelado', cls: 'cancelado' };
+    case 'aguarda_pagamento': return { label: 'A aguardar pagamento', cls: 'pendente' };
     default:           return { label: 'Pendente', cls: 'pendente' };
   }
+}
+
+function paymentLabel(b) {
+  const refunded = b.amount_refunded ? ` · reembolsado ${b.amount_refunded}€` : '';
+  switch (b.payment_status) {
+    case 'authorized': return 'Cativo — cobrado apenas na confirmação';
+    case 'paid':       return `Pago${refunded}`;
+    case 'refunded':   return `Reembolsado (${b.amount_refunded}€)`;
+    case 'released':   return 'Cativação anulada — nada cobrado';
+    default:           return null;
+  }
+}
+
+// What cancelling now does to the client's money (Terms §8).
+function cancelPaymentNote(b) {
+  if (b.payment_status === 'authorized') return 'A cativação será anulada; não será cobrado qualquer valor.';
+  if (b.payment_status !== 'paid') return null;
+  const hoursLeft = (slotInstant(b.slot_date, b.slot_time) - new Date()) / 3600000;
+  if (hoursLeft < CANCELLATION_NOTICE_HOURS) {
+    return `Faltam menos de ${CANCELLATION_NOTICE_HOURS} horas para a consulta: este cancelamento não dá direito a reembolso.`;
+  }
+  return `O valor de ${b.amount_paid - b.amount_refunded}€ será reembolsado.`;
 }
 
 // ---- Calendar Component ----
@@ -250,16 +273,19 @@ const emptyForm = {
   email: '',
   contacto: '',
   contexto: '',
+  termsAccepted: false,
 };
 
 // Deep-link from emails: /marcar-consulta?tab=verificar&ref=IB-XXXX lands the client
 // on the lookup tab with the reference pre-filled. The email is intentionally NOT
 // carried in the URL (privacy: it would leak into history/logs/referrers) — the
 // client still enters it, which keeps a light verification step.
+// Stripe Checkout returns to ?pagamento=ok|cancelado&ref=IB-XXXX.
 function readDeepLink() {
   const params = new URLSearchParams(window.location.search);
   const ref = (params.get('ref') || '').toUpperCase();
-  return { ref, verify: params.get('tab') === 'verificar' || !!ref };
+  const payment = params.get('pagamento') || '';
+  return { ref, payment, verify: !payment && (params.get('tab') === 'verificar' || !!ref) };
 }
 
 export default function BookingPage() {
@@ -274,7 +300,16 @@ export default function BookingPage() {
   const [slotsReload, setSlotsReload] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = useState(deepLink.payment === 'cancelado'
+    ? 'O pagamento foi cancelado e a marcação não foi feita. Pode escolher novamente o horário.' : '');
+  const [paidRef, setPaidRef] = useState(deepLink.payment === 'ok' ? deepLink.ref : '');
+
+  // Back from Checkout without paying: release the held slot now, not when the hold lapses.
+  useEffect(() => {
+    if (deepLink.payment === 'cancelado' && deepLink.ref) {
+      fetch(`/api/payments/${encodeURIComponent(deepLink.ref)}/abandon`, { method: 'POST' }).catch(() => {});
+    }
+  }, [deepLink]);
   // Set when the client moves between steps, so the new step's heading takes
   // focus and screen readers announce where they are.
   const focusStepTitle = useRef(false);
@@ -341,9 +376,11 @@ export default function BookingPage() {
     if (step === 1) return !!(form.sujeito && form.tipoConsulta && form.primeiraConsulta);
     if (step === 2) return !!(form.regime && (form.regime === 'online' || form.localConsulta));
     if (step === 3) return !!form.slotDate && slotChosen;
-    if (step === 4) return !!(form.nome && form.idade && form.email && form.contacto);
+    if (step === 4) return !!(form.nome && form.idade && form.email && form.contacto && form.termsAccepted);
     return false;
   }
+
+  const isOnline = form.regime === 'online';
 
   function setField(key, value) {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -353,10 +390,12 @@ export default function BookingPage() {
     setSubmitting(true);
     setFormError('');
     try {
-      const res = await fetch('/api/bookings', {
+      // Online consultations are paid up front on Stripe's hosted Checkout.
+      const res = await fetch(isOnline ? '/api/payments/checkout' : '/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          terms_accepted: form.termsAccepted,
           sujeito: form.sujeito,
           tipo_consulta: form.tipoConsulta,
           is_first: form.primeiraConsulta === 'primeira',
@@ -381,14 +420,17 @@ export default function BookingPage() {
         } else {
           setFormError(data.message || 'Erro ao processar a marcação. Tente novamente.');
         }
+      } else if (data.url) {
+        // Stays "A processar..." while the browser leaves for Stripe.
+        window.location.assign(data.url);
+        return;
       } else {
         setConfirmedBooking(data.booking);
       }
     } catch {
       setFormError('Erro de ligação. Verifique a sua conexão e tente novamente.');
-    } finally {
-      setSubmitting(false);
     }
+    setSubmitting(false);
   }
 
   async function handleLookup(e) {
@@ -462,6 +504,49 @@ export default function BookingPage() {
     } finally {
       setEditLoading(false);
     }
+  }
+
+  // ---- Back from Stripe ----
+  // The redirect proves nothing about the payment; the webhook records it and the
+  // emails follow, so this only acknowledges the request.
+
+  if (paidRef) {
+    return (
+      <div className="booking-page">
+        <SkipLink />
+        <div className="booking-header">
+          <div className="booking-header-inner">
+            <Link to="/" className="back-link"><ArrowLeft size={16} /> Voltar ao início</Link>
+            <img src="/images/vermelho-128.webp" alt="IB Nutrição" className="booking-logo" />
+          </div>
+        </div>
+        <main className="booking-main" id="main" tabIndex={-1}>
+        <div className="booking-container">
+          <motion.div className="success-screen" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+            <div className="success-check" aria-hidden="true">✓</div>
+            <h2 className="success-title">Pedido Recebido</h2>
+            <p className="success-subtitle">
+              Assim que o pagamento for registado, receberá um email com os detalhes. A consulta fica
+              confirmada quando a nutricionista a aprovar; com cartão ou PayPal o valor só é cobrado nesse momento.
+            </p>
+            <div className="success-ref-box">
+              <span className="success-ref-label">Referência da consulta</span>
+              <span className="success-ref">{paidRef}</span>
+            </div>
+            <p className="success-note">
+              Guarde a referência <strong>{paidRef}</strong> — é necessária para consultar ou alterar a sua marcação.
+            </p>
+            <div className="success-actions">
+              <button className="btn-secondary" onClick={() => { setActiveTab('verificar'); setLookupRef(paidRef); setPaidRef(''); }}>
+                Ver estado da marcação
+              </button>
+              <Link to="/" className="btn-primary">Voltar ao início</Link>
+            </div>
+          </motion.div>
+        </div>
+        </main>
+      </div>
+    );
   }
 
   // ---- Success Screen ----
@@ -855,6 +940,32 @@ export default function BookingPage() {
                           />
                         </div>
                       </div>
+
+                      {isOnline && (
+                        <div className="payment-note">
+                          <strong>Pagamento online de {getPrice(isFirst, form.regime)}€</strong> por cartão, Apple Pay,
+                          Google Pay, PayPal ou MB WAY, numa página segura da Stripe. Com cartão ou PayPal o valor
+                          fica apenas cativo e só é cobrado quando a nutricionista confirmar a consulta; com MB WAY é
+                          cobrado de imediato e reembolsado se a consulta não for confirmada. Cancelamentos com pelo
+                          menos {CANCELLATION_NOTICE_HOURS} horas de antecedência são reembolsados na totalidade.
+                        </div>
+                      )}
+
+                      <label className="terms-consent">
+                        <input
+                          type="checkbox"
+                          checked={form.termsAccepted}
+                          onChange={e => setField('termsAccepted', e.target.checked)}
+                        />
+                        <span>
+                          Li e aceito os <Link to="/termos-e-condicoes" target="_blank">Termos e Condições</Link> e
+                          a <Link to="/politica-de-privacidade" target="_blank">Política de Privacidade</Link>,
+                          incluindo o tratamento dos dados de saúde que partilhar para efeitos da consulta. Tratando-se
+                          de consulta destinada a menor, declaro ser titular das responsabilidades parentais ou estar
+                          autorizado.
+                          {isOnline && ` Confirmo que esta marcação implica uma obrigação de pagamento de ${getPrice(isFirst, form.regime)}€.`}
+                        </span>
+                      </label>
                     </>
                   )}
 
@@ -886,7 +997,7 @@ export default function BookingPage() {
                     disabled={!canProceed() || submitting}
                     onClick={handleSubmit}
                   >
-                    {submitting ? 'A processar...' : 'Confirmar Marcação'}
+                    {submitting ? 'A processar...' : isOnline ? 'Pagar e marcar' : 'Confirmar Marcação'}
                   </button>
                 )}
               </div>
@@ -950,6 +1061,9 @@ export default function BookingPage() {
                       <div className="lr-row"><span>Hora</span><strong>{lookupResult.slot_time} (hora dos Açores)</strong></div>
                       <div className="lr-row"><span>Duração</span><strong>{fmtDuration(lookupResult.duration_minutes)}</strong></div>
                       <div className="lr-row"><span>Preço</span><strong>{lookupResult.price}€</strong></div>
+                      {paymentLabel(lookupResult) && (
+                        <div className="lr-row"><span>Pagamento</span><strong>{paymentLabel(lookupResult)}</strong></div>
+                      )}
                     </div>
 
                     {lookupResult.status === 'revisao' && (
@@ -973,6 +1087,7 @@ export default function BookingPage() {
                     {cancelConfirm && (
                       <div className="confirm-box">
                         <p>Tem a certeza que deseja cancelar a consulta de <strong>{lookupResult.nome}</strong> a <strong>{fmtDate(lookupResult.slot_date)}</strong> às <strong>{lookupResult.slot_time}</strong>?</p>
+                        {cancelPaymentNote(lookupResult) && <p className="cancel-payment-note">{cancelPaymentNote(lookupResult)}</p>}
                         <div className="confirm-actions">
                           <button className="btn-danger" onClick={handleCancel} disabled={cancelLoading}>
                             {cancelLoading ? 'A cancelar...' : 'Confirmar cancelamento'}

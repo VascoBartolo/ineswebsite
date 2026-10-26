@@ -285,8 +285,9 @@ def _event_body(booking):
             f"Contacto: {booking.contacto}\n"
             f"Regime: {regime_info}\n"
             f"Preço: {float(booking.price):.0f}€\n"
-            f"Duração: {booking.duration_minutes} min\n\n"
-            f"Contexto: {booking.contexto or 'Sem contexto adicional'}"
+            f"Duração: {booking.duration_minutes} min"
+            # No `contexto`: it can hold health data (RGPD art. 9) and Google is a US
+            # processor. The admin panel shows it by reference.
         ),
         "start": {"dateTime": start_dt.isoformat(), "timeZone": TIMEZONE},
         "end": {"dateTime": end_dt.isoformat(), "timeZone": TIMEZONE},

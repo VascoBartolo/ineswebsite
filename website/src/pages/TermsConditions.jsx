@@ -107,6 +107,11 @@ export default function TermsConditions() {
             horários apresentados como disponíveis, e preenche os dados solicitados;
           </li>
           <li>
+            nas consultas online, o pedido só é registado depois de autorizado o pagamento, nos
+            termos do ponto 6. Enquanto decorre o pagamento, o horário fica reservado durante
+            um período máximo de 35 minutos;
+          </li>
+          <li>
             submetido o pedido, é atribuída uma <strong>referência de marcação</strong> e enviado
             um e-mail de receção. A marcação fica no estado <em>pendente</em> e o horário fica
             reservado;
@@ -118,7 +123,9 @@ export default function TermsConditions() {
           </li>
           <li>
             se for solicitada alteração, a marcação passa ao estado <em>necessita alteração</em>{' '}
-            e o horário deixa de estar reservado.
+            e o horário deixa de estar reservado. Nas consultas online, o pagamento mantém-se
+            até ser acordada nova data; não havendo acordo, é anulado ou reembolsado na
+            totalidade.
           </li>
         </ul>
         <p>
@@ -162,9 +169,36 @@ export default function TermsConditions() {
           resumo da marcação é o preço devido.
         </p>
         <p>
-          O site <strong>não processa pagamentos online</strong>. O pagamento é efetuado
-          diretamente à nutricionista, nos termos acordados, sendo emitida fatura-recibo nos
-          termos legais. Eventuais alterações de preços não afetam marcações já confirmadas.
+          <strong>Consultas online.</strong> O pagamento é efetuado no momento da marcação, numa
+          página segura da Stripe Payments Europe, Ltd., por cartão de crédito ou débito, Apple
+          Pay, Google Pay, PayPal ou MB WAY. Os dados do meio de pagamento são introduzidos
+          diretamente na Stripe ou no PayPal e nunca são recebidos nem conservados por este site.
+          Ao submeter a marcação, o utilizador reconhece que esta implica uma obrigação de
+          pagamento.
+        </p>
+        <ul>
+          <li>
+            com cartão, Apple Pay, Google Pay ou PayPal, o valor fica <strong>cativo</strong> no
+            meio de pagamento e só é <strong>cobrado quando a nutricionista confirmar</strong>{' '}
+            a consulta;
+          </li>
+          <li>
+            com MB WAY, que não permite cativação, o valor é cobrado de imediato e
+            reembolsado na totalidade se a consulta não vier a ser confirmada;
+          </li>
+          <li>
+            se a nutricionista não confirmar a consulta no prazo indicado no e-mail de receção
+            (em regra, até 5 dias), o pedido caduca, a cativação é anulada ou o valor
+            reembolsado, e o utilizador é informado por e-mail.
+          </li>
+        </ul>
+        <p>
+          <strong>Consultas presenciais.</strong> O pagamento é efetuado no local da consulta,
+          nos termos acordados, não sendo processado pelo site.
+        </p>
+        <p>
+          Em qualquer caso, é emitida fatura-recibo nos termos legais após o pagamento.
+          Eventuais alterações de preços não afetam marcações já confirmadas.
         </p>
       </section>
 
@@ -194,16 +228,39 @@ export default function TermsConditions() {
           mínima de <strong>{CANCELLATION_NOTICE_HOURS} horas</strong> relativamente à hora
           marcada, através da área de gestão de marcação ou dos contactos indicados.
         </p>
+        <p>Nas consultas online pagas através do site:</p>
+        <ul>
+          <li>
+            o cancelamento com pelo menos {CANCELLATION_NOTICE_HOURS} horas de antecedência
+            confere direito ao <strong>reembolso integral</strong>, ou à anulação da cativação
+            se o valor ainda não tiver sido cobrado;
+          </li>
+          <li>
+            o cancelamento de uma consulta ainda não confirmada pela nutricionista anula sempre
+            a cativação, sem qualquer custo;
+          </li>
+          <li>
+            o cancelamento de uma consulta confirmada com menos de {CANCELLATION_NOTICE_HOURS}{' '}
+            horas de antecedência, ou a não comparência sem aviso prévio, não confere direito a
+            reembolso. A nutricionista pode, ainda assim, mediante pedido do utilizador e
+            nomeadamente em caso de força maior devidamente justificado, acordar um reembolso
+            total ou parcial;
+          </li>
+          <li>
+            os reembolsos são efetuados para o meio de pagamento utilizado e ficam, em regra,
+            disponíveis em 5 a 10 dias úteis, consoante a entidade emissora.
+          </li>
+        </ul>
         <p>
-          A não comparência sem aviso prévio, ou o cancelamento efetuado com menos de{' '}
-          {CANCELLATION_NOTICE_HOURS} horas de antecedência, poderá determinar a cobrança da
-          consulta, salvo motivo de força maior devidamente justificado.
+          Nas consultas presenciais, a não comparência sem aviso prévio, ou o cancelamento
+          efetuado com menos de {CANCELLATION_NOTICE_HOURS} horas de antecedência, poderá
+          determinar a cobrança da consulta, salvo motivo de força maior devidamente justificado.
         </p>
         <p>
           A nutricionista reserva-se o direito de cancelar ou remarcar uma consulta por motivo
           justificado, designadamente doença ou impossibilidade superveniente, informando o
           utilizador com a maior brevidade possível e propondo nova data ou, não sendo esta
-          aceite, devolvendo qualquer montante entretanto pago.
+          aceite, devolvendo na totalidade qualquer montante entretanto pago.
         </p>
       </section>
 

@@ -130,6 +130,23 @@ export default function PrivacyPolicy() {
           não podem ser totalmente eliminados, como falhas de ligação ou o acesso indevido ao
           equipamento do próprio utente.
         </p>
+
+        <h3>3.7. Pagamentos</h3>
+        <p>
+          As consultas online são pagas na marcação, numa página segura da{' '}
+          <strong>Stripe</strong>. Os dados do cartão, da conta PayPal ou do MB WAY são
+          introduzidos diretamente na Stripe ou no PayPal e{' '}
+          <strong>nunca são recebidos nem conservados por este site</strong>. A Stripe recebe
+          apenas o nome e o e-mail indicados, o valor e a referência da marcação; o tipo de
+          consulta e o campo de contexto não lhe são enviados.
+        </p>
+        <p>
+          São conservados neste site: o estado do pagamento (cativo, pago, reembolsado ou
+          anulado), o meio utilizado (por exemplo, cartão ou MB WAY), os valores pagos e
+          reembolsados, as respetivas datas e os identificadores técnicos atribuídos pela
+          Stripe. É também registada a data e a versão dos Termos e Condições e desta Política
+          aceites no momento da marcação.
+        </p>
       </section>
 
       <section>
@@ -168,6 +185,16 @@ export default function PrivacyPolicy() {
                 <td>Resposta a mensagens enviadas pelo formulário de contacto</td>
                 <td>Nome, e-mail, telefone, mensagem</td>
                 <td>Artigo 6.º, n.º 1, al. f) — interesse legítimo em responder a quem nos contacta</td>
+              </tr>
+              <tr>
+                <td>Processamento do pagamento das consultas online, cativações e reembolsos</td>
+                <td>Nome, e-mail, valor, referência da marcação, estado e meio de pagamento</td>
+                <td>Artigo 6.º, n.º 1, al. b) — execução do contrato</td>
+              </tr>
+              <tr>
+                <td>Prova da aceitação dos Termos e Condições e desta Política</td>
+                <td>Data e versão aceites</td>
+                <td>Artigo 6.º, n.º 1, al. f) — interesse legítimo em demonstrar o cumprimento (artigo 5.º, n.º 2)</td>
               </tr>
               <tr>
                 <td>Faturação e cumprimento de obrigações fiscais e contabilísticas</td>
@@ -213,7 +240,11 @@ export default function PrivacyPolicy() {
                 <td>10 anos, nos termos da legislação fiscal aplicável</td>
               </tr>
               <tr>
-                <td>Marcações canceladas ou não confirmadas</td>
+                <td>Registos de pagamentos e reembolsos</td>
+                <td>10 anos, como suporte contabilístico, mesmo que a marcação tenha sido cancelada</td>
+              </tr>
+              <tr>
+                <td>Marcações canceladas ou não confirmadas, sem pagamento associado</td>
                 <td>Até 12 meses, salvo se necessárias para prova ou defesa de direitos</td>
               </tr>
               <tr>
@@ -260,7 +291,26 @@ export default function PrivacyPolicy() {
             <strong>Google (Google Meet)</strong> — plataforma de videochamada utilizada nas
             consultas online, nos termos do ponto 3.6.
           </li>
+          <li>
+            <strong>Stripe Payments Europe, Ltd. (Irlanda)</strong> — processamento dos
+            pagamentos das consultas online, nos termos do ponto 3.7. Para a prevenção de fraude
+            e o cumprimento das suas próprias obrigações legais (designadamente de
+            identificação e de combate ao branqueamento de capitais), a Stripe atua como
+            responsável pelo tratamento autónomo, nos termos da sua{' '}
+            <a href="https://stripe.com/pt/privacy" target="_blank" rel="noopener noreferrer">
+              política de privacidade
+            </a>.
+          </li>
         </ul>
+        <p>
+          Se escolher pagar com <strong>PayPal</strong>, a PayPal (Europe) S.à r.l. et Cie,
+          S.C.A. (Luxemburgo) trata os seus dados como responsável autónomo, nos termos da{' '}
+          <a href="https://www.paypal.com/pt/legalhub/privacy-full" target="_blank" rel="noopener noreferrer">
+            política de privacidade do PayPal
+          </a>. O mesmo sucede com o banco emissor do cartão, a SIBS (MB WAY) e, quando
+          utilizados, a Apple (Apple Pay) e a Google (Google Pay), relativamente aos dados que
+          tratam para executar o pagamento.
+        </p>
         <p>
           Os dados podem ainda ser comunicados a autoridades públicas quando exista obrigação
           legal de o fazer, bem como a contabilista certificado no âmbito das obrigações
@@ -275,7 +325,9 @@ export default function PrivacyPolicy() {
           subcontratante implique o acesso a dados a partir de países terceiros, tal ocorre ao
           abrigo de uma decisão de adequação da Comissão Europeia ou de Cláusulas Contratuais
           Tipo aprovadas nos termos do artigo 46.º do RGPD, acompanhadas de medidas
-          complementares de segurança.
+          complementares de segurança. É o caso da Stripe, cujo grupo pode tratar dados de
+          pagamento nos Estados Unidos ao abrigo do Quadro de Privacidade de Dados UE-EUA e de
+          Cláusulas Contratuais Tipo.
         </p>
       </section>
 
@@ -317,6 +369,13 @@ export default function PrivacyPolicy() {
           Excetua-se apenas a área reservada de administração, de acesso exclusivo à
           nutricionista, que utiliza um cookie de sessão estritamente necessário à
           autenticação.
+        </p>
+        <p>
+          O pagamento das consultas online decorre numa página da Stripe
+          (checkout.stripe.com), para a qual é redirecionado. Essa página utiliza os seus próprios
+          cookies, necessários à segurança do pagamento e à prevenção de fraude, nos termos da
+          política de privacidade e de cookies da Stripe. Este site não carrega qualquer código
+          da Stripe.
         </p>
         <p>
           Não são utilizadas ferramentas de estatísticas ou de análise de audiências, de
@@ -374,7 +433,8 @@ export default function PrivacyPolicy() {
         <p>
           Os campos assinalados como obrigatórios no formulário de marcação são indispensáveis
           para o registo e a gestão da consulta. A sua não disponibilização impossibilita a
-          marcação. Os campos facultativos, como o contexto clínico, destinam-se apenas a
+          marcação. Nas consultas online, o pagamento através da Stripe é igualmente condição
+          da marcação. Os campos facultativos, como o contexto clínico, destinam-se apenas a
           preparar melhor a consulta.
         </p>
       </section>

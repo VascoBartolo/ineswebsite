@@ -19,9 +19,11 @@ def _noop_emails(monkeypatch):
 
 def _payload(**over):
     d = dict(
-        sujeito="adulto", tipo_consulta="consulta na gravidez", regime="online",
+        sujeito="adulto", tipo_consulta="consulta na gravidez", regime="presencial",
+        local_consulta="Clínica Manus (Angra do Heroísmo)",
         nome="Maria Teste", idade="34", email="maria@teste.pt", contacto="960000000",
         slot_date=_future_monday().isoformat(), slot_time="17:00", is_first=True,
+        terms_accepted=True,
     )
     d.update(over)
     return d
@@ -84,9 +86,10 @@ def test_public_booking_persists_is_first(client, app, monkeypatch):
     monkeypatch.setattr(app_mod.email_service, "send_booking_received_client", lambda b: None)
     monkeypatch.setattr(app_mod.email_service, "send_nutritionist_new_booking", lambda b: None)
     payload = {
-        "sujeito": "Adulto", "tipo_consulta": "Consulta na Gravidez", "regime": "online",
+        "sujeito": "Adulto", "tipo_consulta": "Consulta na Gravidez", "regime": "presencial",
+        "local_consulta": "Clínica Manus (Angra do Heroísmo)",
         "nome": "Teste", "idade": "30", "email": "t@e.pt", "contacto": "960000000",
-        "slot_date": "2026-12-15", "slot_time": "16:00", "is_first": False,
+        "slot_date": "2026-12-15", "slot_time": "16:00", "is_first": False, "terms_accepted": True,
     }
     r = client.post("/api/bookings", json=payload)
     assert r.status_code == 201
