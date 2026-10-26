@@ -69,7 +69,8 @@ export default function PrivacyPolicy() {
           consulta quando presencial, nome, idade, endereço de e-mail, contacto telefónico,
           data e hora pretendidas e, facultativamente, um campo de contexto livre onde pode
           descrever o motivo da consulta. É ainda gerada uma referência interna da marcação e
-          registado o respetivo estado.
+          registados o respetivo estado e a indicação de se se trata de primeira consulta ou de
+          consulta de seguimento.
         </p>
 
         <h3>3.2. Dados relativos à saúde</h3>
@@ -110,6 +111,24 @@ export default function PrivacyPolicy() {
           do pedido, o código de resposta e o endereço IP de origem. Estes registos são usados
           para deteção de abusos e limitação do número de pedidos por origem, e não são
           utilizados para criar perfis nem para publicidade.
+        </p>
+
+        <h3>3.6. Consultas online</h3>
+        <p>
+          As consultas em regime online são realizadas por videochamada através do{' '}
+          <strong>Google Meet</strong>, cujo endereço de acesso é enviado por e-mail. Para
+          estabelecer a chamada, a Google trata dados técnicos da ligação (como o endereço IP,
+          o tipo de dispositivo e a duração da chamada) e, se aceder com uma conta Google, o seu
+          nome e endereço de e-mail. As comunicações são cifradas em trânsito. As consultas{' '}
+          <strong>não são gravadas</strong>.
+        </p>
+        <p>
+          A nutricionista realiza as consultas online num espaço reservado, de modo a garantir
+          a confidencialidade da conversa. Recomenda-se que o utente faça o mesmo, utilize um
+          equipamento e uma ligação à Internet de confiança e não grave a sessão sem o
+          consentimento de ambas as partes. A utilização de meios digitais comporta riscos que
+          não podem ser totalmente eliminados, como falhas de ligação ou o acesso indevido ao
+          equipamento do próprio utente.
         </p>
       </section>
 
@@ -232,13 +251,14 @@ export default function PrivacyPolicy() {
           </li>
           <li>
             <strong>Google (Google Calendar)</strong> — a agenda profissional é gerida no Google
-            Calendar. Quando uma marcação é confirmada, é criado um evento com os dados
-            necessários à realização da consulta.
+            Calendar. Quando uma marcação é confirmada, é criado um evento com o nome, o tipo de
+            consulta, a referência da marcação, o endereço de e-mail, o contacto telefónico, o
+            regime e local, a duração e o preço. O campo de contexto, que pode conter dados
+            relativos à saúde, não é enviado para o Google Calendar.
           </li>
           <li>
-            <strong>Google (Google Fonts)</strong> — as tipografias do site são carregadas a
-            partir dos servidores da Google, o que implica a transmissão do seu endereço IP à
-            Google no momento em que a página é aberta.
+            <strong>Google (Google Meet)</strong> — plataforma de videochamada utilizada nas
+            consultas online, nos termos do ponto 3.6.
           </li>
         </ul>
         <p>
@@ -265,8 +285,10 @@ export default function PrivacyPolicy() {
           São aplicadas medidas técnicas e organizativas adequadas ao risco, nos termos do
           artigo 32.º do RGPD, incluindo a cifragem das comunicações, o controlo de acessos, a
           validação dos dados submetidos e mecanismos de proteção contra utilização abusiva do
-          serviço. O acesso aos dados é restrito à nutricionista, sujeita a segredo
-          profissional.
+          serviço. O acesso aos dados é limitado à nutricionista, sujeita a segredo
+          profissional, e aos prestadores devidamente autorizados identificados no ponto 6,
+          apenas quando estritamente necessário e sujeitos às respetivas obrigações de
+          confidencialidade e proteção de dados.
         </p>
         <p>
           Por razões de segurança, não são divulgados os pormenores técnicos das medidas
@@ -286,7 +308,15 @@ export default function PrivacyPolicy() {
         <p>
           <strong>Este site não coloca quaisquer cookies no seu equipamento</strong> durante a
           navegação, a marcação de consultas ou a gestão de uma marcação. Também não é
-          utilizado armazenamento local do navegador para acompanhar a sua navegação.
+          utilizado armazenamento local do navegador para acompanhar a sua navegação. As
+          tipografias e imagens do site são servidas a partir do próprio site, sem recurso a
+          serviços de terceiros, e não existem vídeos, mapas ou outros conteúdos incorporados
+          de terceiros.
+        </p>
+        <p>
+          Excetua-se apenas a área reservada de administração, de acesso exclusivo à
+          nutricionista, que utiliza um cookie de sessão estritamente necessário à
+          autenticação.
         </p>
         <p>
           Não são utilizadas ferramentas de estatísticas ou de análise de audiências, de
@@ -299,11 +329,6 @@ export default function PrivacyPolicy() {
           necessita de apresentar — qualquer banner de cookies. Caso venham a ser introduzidas
           tecnologias não essenciais, o seu consentimento será previamente solicitado e esta
           política será atualizada em conformidade.
-        </p>
-        <p>
-          Nota: conforme indicado no ponto 6, as tipografias do site são carregadas a partir dos
-          servidores da Google, o que implica a transmissão do seu endereço IP à Google. Esse
-          carregamento não envolve a colocação de cookies no seu equipamento.
         </p>
       </section>
 
