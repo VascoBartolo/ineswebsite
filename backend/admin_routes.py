@@ -91,9 +91,26 @@ def _sync_calendar(booking):
         booking.google_event_id = None
 
 
+# Privacy Policy §5: cancelled or never-confirmed bookings are kept at most 12 months.
+# Purged inline like LoginAttempt, since an in-process scheduler would run once per
+# gunicorn worker and replica.
+# shortcut: only runs when the admin panel lists bookings; move to an ACA Job if the
+# panel can go unopened for weeks.
+UNCONFIRMED_RETENTION = timedelta(days=365)
+
+
+def _purge_expired_bookings():
+    cutoff = utcnow().date() - UNCONFIRMED_RETENTION
+    Booking.query.filter(
+        Booking.status != "confirmado", Booking.slot_date < cutoff,
+    ).delete(synchronize_session=False)
+    db.session.commit()
+
+
 @admin_bp.route("/bookings")
 @auth.require_admin
 def list_bookings():
+    _purge_expired_bookings()
     q = Booking.query
     status = request.args.get("status", "all")
     regime = request.args.get("regime", "all")

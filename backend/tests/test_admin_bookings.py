@@ -131,3 +131,23 @@ def test_unknown_order_value_falls_back_to_desc(client, app):
     _auth(client)
     refs = [b["reference"] for b in client.get("/api/admin/bookings?order=sideways").get_json()["bookings"]]
     assert refs == ["IB-NEW", "IB-OLD"]
+
+
+def test_unconfirmed_bookings_purged_after_12_months(client, app):
+    """Privacy Policy §5: cancelled / never-confirmed bookings kept at most 12 months.
+    Confirmed ones are clinical history and must survive."""
+    from datetime import timedelta
+    from models import Booking, utcnow
+    today = utcnow().date()
+    old, recent = today - timedelta(days=400), today - timedelta(days=30)
+    with app.app_context():
+        make_booking(reference="IB-OLDCANC", status="cancelado", slot_date=old)
+        make_booking(reference="IB-OLDPEND", status="pendente", slot_date=old)
+        make_booking(reference="IB-OLDREVI", status="revisao", slot_date=old)
+        make_booking(reference="IB-OLDCONF", status="confirmado", slot_date=old)
+        make_booking(reference="IB-NEWCANC", status="cancelado", slot_date=recent)
+    _auth(client)
+    client.get("/api/admin/bookings")
+    with app.app_context():
+        left = {b.reference for b in Booking.query.all()}
+    assert left == {"IB-OLDCONF", "IB-NEWCANC"}
