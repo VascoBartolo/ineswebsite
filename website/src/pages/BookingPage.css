@@ -728,6 +728,31 @@
   margin-top: 1rem;
 }
 
+.payment-note {
+  background: var(--light-bg);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-dark);
+  margin-top: 1.25rem;
+}
+
+.terms-consent {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.terms-consent input { margin-top: 0.2rem; accent-color: var(--crimson); flex-shrink: 0; }
+.terms-consent a { color: var(--crimson); }
+
+.cancel-payment-note { font-size: 0.875rem; color: var(--crimson); }
+
 /* ===== Success Screen ===== */
 
 .success-screen {

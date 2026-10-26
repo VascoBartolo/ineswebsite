@@ -36,6 +36,9 @@ export const adminApi = {
   stats: (params) => req('/stats?' + new URLSearchParams(params).toString()),
   createBooking: (data) => req('/bookings', { method: 'POST', body: JSON.stringify(data) }),
   editBooking: (ref, data) => req(`/bookings/${ref}`, { method: 'PUT', body: JSON.stringify(data) }),
-  cancelBooking: (ref, notify = true) => req(`/bookings/${ref}/cancel`, { method: 'POST', body: JSON.stringify({ notify }) }),
+  cancelBooking: (ref, notify = true, refund = false, amount = null) =>
+    req(`/bookings/${ref}/cancel`, { method: 'POST', body: JSON.stringify({ notify, refund, amount }) }),
+  refundBooking: (ref, amount, notify = true) =>
+    req(`/bookings/${ref}/refund`, { method: 'POST', body: JSON.stringify({ amount, notify }) }),
   deleteBooking: (ref) => req(`/bookings/${ref}`, { method: 'DELETE' }),
 };

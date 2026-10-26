@@ -36,6 +36,8 @@ function saveErrorMessage(body) {
       return `${name}: texto demasiado longo.`;
     case 'invalid_fields':
       return 'Verifique a data, a hora, a duração e o preço.';
+    case 'capture_failed':
+      return 'Não foi possível cobrar o pagamento (a cativação pode ter expirado), pelo que a marcação não foi confirmada.';
     default:
       if (body?.error?.startsWith('invalid_') && name) return `Valor inválido em: ${name}.`;
       return 'Não foi possível guardar.';
@@ -163,6 +165,9 @@ export default function EditBookingModal({ booking, create = false, locations = 
               <option value="pendente">Pendente</option><option value="confirmado">Confirmado</option><option value="revisao">Necessita Alteração</option><option value="cancelado">Cancelado</option>
             </select></div>
         </div>
+        {booking?.payment_status === 'authorized' && (
+          <p className="modal-note">Pagamento cativo: ao guardar como <strong>Confirmado</strong>, o valor é cobrado ao cliente.</p>
+        )}
         </div>
         <div className="modal-foot">
         {err && <p className="modal-err" role="alert">{err}</p>}
