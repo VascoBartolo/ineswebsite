@@ -31,7 +31,7 @@ export const PRACTICE_LOCATIONS = [
 export const PRACTICE_REGION = 'Angra do Heroísmo, Ilha Terceira, Açores, Portugal';
 
 // Shown as "last updated" on both pages. Update whenever the text changes.
-export const LAST_UPDATED = '8 de setembro de 2026';
+export const LAST_UPDATED = '26 de outubro de 2026';
 
 // Minimum notice, in hours, for a client to cancel or reschedule without the
 // consultation counting as a missed appointment. Stated in the Terms.

@@ -137,11 +137,19 @@ export default function TermsConditions() {
 
         <h3>5.3. Consultas online</h3>
         <p>
-          As consultas em regime online são realizadas por videochamada, cujo acesso é
-          comunicado previamente por e-mail. É da responsabilidade do utilizador dispor de
-          ligação à Internet, equipamento e condições de privacidade adequados. Falhas técnicas
-          imputáveis ao utilizador não conferem direito a remarcação gratuita, sem prejuízo da
-          avaliação de cada caso concreto.
+          As consultas em regime online são realizadas por videochamada (Google Meet), cujo
+          acesso é comunicado previamente por e-mail. É da responsabilidade do utilizador dispor
+          de ligação à Internet, equipamento e condições de privacidade adequados. Falhas
+          técnicas imputáveis ao utilizador não conferem direito a remarcação gratuita, sem
+          prejuízo da avaliação de cada caso concreto.
+        </p>
+        <p>
+          A consulta online não permite a observação nem a avaliação física presencial, como a
+          medição do peso ou do comprimento pela nutricionista, podendo ser pedido ao utilizador
+          que disponibilize esses dados. Sempre que tal se justifique, será recomendada uma
+          consulta presencial. As condições de privacidade e confidencialidade e os riscos
+          associados à utilização de meios digitais estão descritos na{' '}
+          <Link to="/politica-de-privacidade">Política de Privacidade</Link>.
         </p>
       </section>
 
@@ -202,29 +210,14 @@ export default function TermsConditions() {
       <section>
         <h2>9. Direito de livre resolução</h2>
         <p>
-          Tratando-se de contrato celebrado à distância com um consumidor, assiste ao utilizador
-          o direito de <strong>livre resolução no prazo de 14 dias</strong> a contar da data de
-          celebração do contrato, sem necessidade de indicar qualquer motivo e sem encargos, nos
-          termos dos artigos 10.º e seguintes do Decreto-Lei n.º 24/2014, de 14 de fevereiro.
+          O regime do direito de livre resolução previsto no Decreto-Lei n.º 24/2014, de 14 de
+          fevereiro, não se aplica aos contratos relativos a serviços de cuidados de saúde, como
+          as consultas de nutrição prestadas por nutricionista inscrita na{' '}
+          {ENTITY.professionalOrder}.
         </p>
         <p>
-          Para exercer este direito basta comunicar essa decisão, de forma inequívoca, para{' '}
-          <a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a>. O reembolso de qualquer montante
-          pago é efetuado no prazo de 14 dias a contar da receção da comunicação.
-        </p>
-        <p>
-          Nos termos do artigo 17.º, n.º 1, alínea a), do mesmo diploma, o direito de livre
-          resolução <strong>não pode ser exercido depois de o serviço ter sido integralmente
-          prestado</strong>, quando a execução tenha tido início com o acordo expresso do
-          consumidor e com o reconhecimento de que perderia esse direito uma vez o serviço
-          integralmente prestado. Se a consulta se realizar dentro do prazo de 14 dias a pedido
-          do utilizador, este aceita que o direito de livre resolução se extingue com a
-          realização da consulta.
-        </p>
-        <p>
-          Este direito é autónomo e não prejudica a política de cancelamento prevista no
-          ponto 8, que se aplica às consultas marcadas para data posterior ao termo do prazo de
-          14 dias.
+          Sem prejuízo, o utilizador pode cancelar ou alterar qualquer consulta, sem encargos,
+          nos termos e com a antecedência previstos no ponto 8.
         </p>
       </section>
 
@@ -302,16 +295,26 @@ export default function TermsConditions() {
         <h2>14. Reclamações e resolução de litígios</h2>
         <p>
           Qualquer reclamação pode ser apresentada diretamente para{' '}
-          <a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a> ou através do{' '}
-          <a href="https://www.livroreclamacoes.pt/inicio" target="_blank" rel="noopener noreferrer">
-            Livro de Reclamações Eletrónico
-          </a>.
+          <a href={`mailto:${ENTITY.email}`}>{ENTITY.email}</a>.
         </p>
         <p>
-          Em caso de litígio de consumo, o consumidor pode recorrer a uma entidade de resolução
-          alternativa de litígios, nos termos da Lei n.º 144/2015, de 8 de setembro. A lista
-          atualizada das entidades competentes, incluindo a territorialmente competente na
-          Região Autónoma dos Açores, está disponível no{' '}
+          Em caso de litígio de consumo, o consumidor pode recorrer às seguintes entidades de
+          resolução alternativa de litígios, nos termos da Lei n.º 144/2015, de 8 de setembro:
+        </p>
+        <ul>
+          <li>
+            <strong>CIMARA — Centro de Informação, Mediação e Arbitragem de Consumo dos
+            Açores</strong>, Rua de São Joaquim, n.º 1, R/C Dto., 9500-112 Ponta Delgada —{' '}
+            <a href="http://ocimara.pt" target="_blank" rel="noopener noreferrer">ocimara.pt</a>;
+          </li>
+          <li>
+            <strong>CNIACC — Centro Nacional de Informação e Arbitragem de Conflitos de
+            Consumo</strong> —{' '}
+            <a href="https://www.cniacc.pt" target="_blank" rel="noopener noreferrer">www.cniacc.pt</a>.
+          </li>
+        </ul>
+        <p>
+          Mais informações no{' '}
           <a href="https://www.consumidor.gov.pt" target="_blank" rel="noopener noreferrer">
             Portal do Consumidor
           </a>.
