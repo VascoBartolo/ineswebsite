@@ -132,6 +132,7 @@ def test_bessa_saturday_rejected_by_booking_endpoint(client):
         "slot_date": SATURDAY.isoformat(),
         "slot_time": "09:00",
         "is_first": False,
+        "terms_accepted": True,
     })
     assert res.status_code == 409
     assert res.get_json()["error"] == "slot_unavailable"

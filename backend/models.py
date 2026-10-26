@@ -42,10 +42,34 @@ class Booking(db.Model):
     #   confirmado — approved by the nutritionist; calendar event created. HOLDS the slot.
     #   revisao    — rejected / needs a new time. Does NOT hold the slot.
     #   cancelado  — cancelled by the client. Does NOT hold the slot.
+    #   aguarda_pagamento — online request sent to Stripe Checkout. HOLDS the slot
+    #                only until hold_expires_at; becomes pendente once paid.
     status = db.Column(db.String(20), default="pendente", nullable=False, index=True)
     google_event_id = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    # Proof of acceptance of the Terms + Privacy Policy, taken server-side.
+    # NULL on admin-created and older bookings.
+    terms_accepted_at = db.Column(db.DateTime)
+    terms_version = db.Column(db.String(32))
+
+    # Online payment (see payments.py). NULL payment_status = no online payment
+    # (presencial, admin-created, or booked before payments existed).
+    #   pending    — Checkout open      authorized — card/PayPal held, not charged
+    #   paid       — charged            released   — hold cancelled, nothing charged
+    #   refunded   — fully refunded     expired    — Checkout abandoned
+    payment_status = db.Column(db.String(20))
+    payment_method_type = db.Column(db.String(30))
+    stripe_session_id = db.Column(db.String(255))
+    stripe_payment_intent = db.Column(db.String(255))
+    amount_paid = db.Column(db.Numeric(10, 2))
+    amount_refunded = db.Column(db.Numeric(10, 2))
+    paid_at = db.Column(db.DateTime)
+    hold_expires_at = db.Column(db.DateTime)
+    # Deadline for the nutritionist to confirm: when a card/PayPal hold lapses,
+    # or our own deadline for MB WAY, which is charged at once.
+    capture_before = db.Column(db.DateTime)
 
     def to_dict(self):
         return {
@@ -66,6 +90,9 @@ class Booking(db.Model):
             "price": float(self.price),
             "status": self.status,
             "created_at": self.created_at.isoformat(),
+            "payment_status": self.payment_status,
+            "amount_paid": float(self.amount_paid) if self.amount_paid is not None else None,
+            "amount_refunded": float(self.amount_refunded or 0),
         }
 
 

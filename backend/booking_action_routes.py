@@ -19,6 +19,7 @@ import auth
 from models import db, Booking
 import calendar_service
 import email_service
+import payments
 
 logger = logging.getLogger("ibnutricao.booking_action")
 
@@ -146,6 +147,18 @@ def action_execute():
     if booking.status == target:
         logger.info("Booking action %s no-op (already %s) for %s", action, target, ref)
         return _already_done_page(action, ref)
+
+    if action == "confirm":
+        # Confirming is when a held payment is charged; no charge, no confirmation.
+        try:
+            payments.capture(booking)
+        except payments.PaymentError as e:
+            db.session.rollback()
+            logger.error("Booking confirm: capture failed for %s: %s", ref, e)
+            return _page("Pagamento não cobrado",
+                         f"Não foi possível cobrar o pagamento da consulta <strong>{escape(ref)}</strong> "
+                         "(a autorização pode ter expirado), pelo que não foi confirmada. "
+                         "Contacte o cliente para nova marcação.", status=409)
 
     booking.status = target
     if action == "confirm":

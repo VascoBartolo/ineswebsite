@@ -156,6 +156,48 @@ def _booking_detail_block(booking):
     """
 
 
+def _fmt_deadline(dt):
+    """A naive-UTC deadline in Azores wall-clock time."""
+    local = pytz.utc.localize(dt).astimezone(pytz.timezone(TIMEZONE))
+    return f"{_fmt_date(local.date())} às {local.strftime('%H:%M')}"
+
+
+def _note(text):
+    return (f'<div style="background:white;border-radius:8px;padding:14px 20px;margin:16px 0;'
+            f'font-size:0.92rem;">{text}</div>')
+
+
+def _payment_note(booking):
+    """What happened to the client's money, for bookings paid online."""
+    status = booking.payment_status
+    if status == "authorized":
+        return _note(
+            f"<strong>Pagamento:</strong> o valor de {float(booking.price):.2f}€ está cativo no seu meio "
+            "de pagamento e só é cobrado quando a nutricionista confirmar a consulta. Se não for "
+            f"confirmada até {_fmt_deadline(booking.capture_before)}, a cativação é anulada sem qualquer custo.")
+    if status == "paid" and booking.status == "confirmado":
+        return _note(f"<strong>Pagamento:</strong> {float(booking.amount_paid):.2f}€ cobrados.")
+    if status == "paid":
+        return _note(
+            f"<strong>Pagamento:</strong> {float(booking.amount_paid):.2f}€ pagos. Se a consulta não for "
+            "confirmada, o valor é reembolsado na totalidade.")
+    return ""
+
+
+def _cancel_note(booking):
+    """The cancellation rule, plus which Terms the client accepted (DL 24/2014
+    art. 6.º: the contract confirmed on a durable medium)."""
+    if booking.payment_status:
+        rule = ("Cancelamentos com pelo menos 24 horas de antecedência são reembolsados na "
+                "totalidade; com menos de 24 horas não há lugar a reembolso.")
+    else:
+        rule = "Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência."
+    terms = (f' Aplicam-se os <a href="{SITE_URL}/termos-e-condicoes" style="color:#B94448;">Termos e '
+             f'Condições</a> aceites na marcação (versão {escape(booking.terms_version)}).'
+             if booking.terms_version else "")
+    return f'<p style="color:#7A5050;font-size:0.85rem;">{rule}{terms}</p>'
+
+
 def send_booking_received_client(booking):
     """Sent right after the client books: the slot is reserved but still awaiting
     the nutritionist's confirmation."""
@@ -168,7 +210,8 @@ def send_booking_received_client(booking):
     <p>Para verificar, alterar ou cancelar a sua consulta, aceda a
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
-    <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
+    {_payment_note(booking)}
+    {_cancel_note(booking)}
     <p>Se houver alguma questão por favor contactar {escape(REPLY_TO)}.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
@@ -187,7 +230,8 @@ def send_booking_confirmed_client(booking):
     <p>Para verificar, alterar ou cancelar a sua consulta, aceda a
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        — a referência <strong>{escape(booking.reference)}</strong> já vai pré-preenchida, basta introduzir o email utilizado nesta marcação.</p>
-    <p style="color:#7A5050;font-size:0.85rem;">Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência.</p>
+    {_payment_note(booking)}
+    {_cancel_note(booking)}
     <p>Se houver alguma questão por favor contactar {escape(REPLY_TO)}.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
        <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
@@ -206,6 +250,9 @@ def send_booking_review_client(booking):
        não será possível realizar a consulta no horário pedido. Não se preocupe — a
        nutricionista irá entrar em contacto consigo para encontrar uma nova data.</p>
     {_booking_detail_block(booking)}
+    {_note("<strong>Pagamento:</strong> mantém-se como está até acordarem uma nova data. "
+           "Se não chegarem a acordo, é anulado ou reembolsado na totalidade.")
+     if booking.payment_status in ("authorized", "paid") else ""}
     <p>Se preferir, pode desde já escolher um novo horário em
        <a href="{SITE_URL}/marcar-consulta?tab=verificar&amp;ref={escape(booking.reference)}" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
        ou contactar {escape(REPLY_TO)}.</p>
@@ -268,6 +315,21 @@ def _nutritionist_action_block(booking):
     """
 
 
+def _nutritionist_payment_note(booking):
+    method = escape(booking.payment_method_type or "")
+    if booking.payment_status == "authorized":
+        text = (f"<strong>Pagamento cativo</strong> ({method}), cobrado ao confirmar. "
+                f"Confirme até <strong>{_fmt_deadline(booking.capture_before)}</strong>; "
+                "depois disso a marcação é cancelada automaticamente.")
+    elif booking.payment_status == "paid":
+        text = (f"<strong>Pago</strong> ({method}). Confirme até "
+                f"<strong>{_fmt_deadline(booking.capture_before)}</strong>; depois disso a marcação "
+                "é cancelada e o cliente reembolsado automaticamente.")
+    else:
+        return ""
+    return _note(text)
+
+
 def send_nutritionist_new_booking(booking):
     ctx = f"<tr><td style='padding:5px 0;color:#7A5050;font-size:0.85rem;'>Contexto</td><td style='padding:5px 0;'>{escape(booking.contexto)}</td></tr>" if booking.contexto else ""
     html = _base_style() + f"""
@@ -286,17 +348,31 @@ def send_nutritionist_new_booking(booking):
         {ctx}
       </table>
     </div>
+    {_nutritionist_payment_note(booking)}
     {_nutritionist_action_block(booking)}
     </div>
     """
     _send(NUTRITIONIST_EMAIL, f"Nova Marcação — {booking.reference} — {booking.nome}", html, reply_to=booking.email)
 
 
-def send_booking_cancelled_client(booking):
+def _refund_text(booking, refunded):
+    if refunded:
+        return (f"Foi emitido um reembolso de <strong>{float(refunded):.2f}€</strong> para o meio de "
+                "pagamento utilizado, que costuma ficar disponível em 5 a 10 dias úteis.")
+    if booking.payment_status == "released":
+        return "A cativação do pagamento foi anulada; não foi cobrado qualquer valor."
+    if booking.payment_status == "paid":
+        return "Não há lugar a reembolso. Para qualquer questão, contacte-nos."
+    return ""
+
+
+def send_booking_cancelled_client(booking, refunded=0):
+    refund = _refund_text(booking, refunded)
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Consulta Cancelada</h2>
     <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
     <p>A sua consulta <strong style="color:#B94448;">{escape(booking.reference)}</strong> foi cancelada com sucesso.</p>
+    {_note(refund) if refund else ""}
     <p>Para marcar uma nova consulta, visite
        <a href="{SITE_URL}/marcar-consulta" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>.</p>
     <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
@@ -305,11 +381,44 @@ def send_booking_cancelled_client(booking):
     _send(booking.email, f"Consulta Cancelada — {booking.reference}", html)
 
 
+def send_payment_expired_client(booking, refunded):
+    """The nutritionist did not confirm before the payment deadline."""
+    html = _base_style() + f"""
+    <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Marcação Não Confirmada</h2>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
+    <p>Lamentamos, mas não foi possível confirmar a tempo o seu pedido de consulta
+       <strong style="color:#B94448;">{escape(booking.reference)}</strong>, pelo que foi cancelado.</p>
+    {_note(_refund_text(booking, refunded))}
+    <p>Para marcar uma nova consulta, visite
+       <a href="{SITE_URL}/marcar-consulta" style="color:#B94448;">{SITE_URL}/marcar-consulta</a>
+       ou contacte {escape(REPLY_TO)}.</p>
+    <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
+    </div>
+    """
+    _send(booking.email, f"Marcação Não Confirmada — {booking.reference}", html)
+
+
+def send_refund_client(booking, refunded):
+    html = _base_style() + f"""
+    <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Reembolso Emitido</h2>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
+    <p>Relativamente à consulta <strong style="color:#B94448;">{escape(booking.reference)}</strong>:</p>
+    {_note(_refund_text(booking, refunded))}
+    <p>Se houver alguma questão por favor contactar {escape(REPLY_TO)}.</p>
+    <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong></p>
+    </div>
+    """
+    _send(booking.email, f"Reembolso — {booking.reference}", html)
+
+
 def send_nutritionist_cancellation(booking):
     html = _base_style() + f"""
     <h2 style="font-family:Georgia,serif;font-weight:400;color:#B94448;">Cancelamento de Consulta</h2>
     <p>A seguinte consulta foi cancelada pelo cliente:</p>
     {_booking_detail_block(booking)}
+    {_note(f"<strong>Pagamento:</strong> {escape(booking.payment_status)}; reembolsado "
+           f"{float(booking.amount_refunded or 0):.2f}€. Se emitiu fatura-recibo, emita a nota de crédito correspondente.")
+     if booking.payment_status else ""}
     <p><strong>Nome:</strong> {escape(booking.nome)} &nbsp;|&nbsp; <strong>Email:</strong> {escape(booking.email)} &nbsp;|&nbsp; <strong>Contacto:</strong> {escape(booking.contacto)}</p>
     </div>
     """

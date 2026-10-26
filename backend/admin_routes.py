@@ -7,6 +7,8 @@ from models import db, Booking, LoginAttempt, generate_unique_reference, utcnow
 import stats as stats_mod
 import calendar_service
 import email_service
+import payment_routes
+import payments
 from validation import (
     BOOKING_LIMITS, EMAIL_RE, REGIMES, STATUSES,
     BadInput, choice, date_arg, int_arg, json_body, parse_date, parse_time, too_long,
@@ -75,6 +77,11 @@ def _booking_admin_dict(b):
     d["duration_minutes"] = b.duration_minutes
     d["updated_at"] = b.updated_at.isoformat() if b.updated_at else None
     d["is_first"] = b.is_first
+    d["payment_method_type"] = b.payment_method_type
+    d["capture_before"] = b.capture_before.isoformat() if b.capture_before else None
+    d["refundable"] = float(payments.refundable(b))
+    d["terms_accepted_at"] = b.terms_accepted_at.isoformat() if b.terms_accepted_at else None
+    d["terms_version"] = b.terms_version
     return d
 
 
@@ -103,6 +110,8 @@ def _purge_expired_bookings():
     cutoff = utcnow().date() - UNCONFIRMED_RETENTION
     Booking.query.filter(
         Booking.status != "confirmado", Booking.slot_date < cutoff,
+        # Money moved: a fiscal record, kept 10 years (Privacy Policy §5).
+        Booking.amount_paid.is_(None),
     ).delete(synchronize_session=False)
     db.session.commit()
 
@@ -111,6 +120,7 @@ def _purge_expired_bookings():
 @auth.require_admin
 def list_bookings():
     _purge_expired_bookings()
+    payment_routes.expire_overdue()
     q = Booking.query
     status = request.args.get("status", "all")
     regime = request.args.get("regime", "all")
@@ -393,7 +403,14 @@ def edit_booking(reference):
     data = json_body()
     # The admin chooses per-save whether the client is emailed the new details.
     notify = bool(data.get("notify", True))
-    for field, value in _clean_fields(data).items():
+    fields = _clean_fields(data)
+    # Moving a booking into confirmado is when a held payment is charged.
+    if fields.get("status") == "confirmado" and booking.status != "confirmado":
+        try:
+            payments.capture(booking)
+        except payments.PaymentError as e:
+            return jsonify({"error": "capture_failed", "message": str(e)}), 409
+    for field, value in fields.items():
         setattr(booking, field, value)
     if "is_first" in data:
         booking.is_first = _parse_is_first(data["is_first"])
@@ -425,9 +442,18 @@ def cancel_booking_admin(reference):
         return jsonify({"error": "not_found"}), 404
     if booking.status == "cancelado":
         return jsonify({"error": "already_cancelled"}), 400
-    # The body is optional; the panel may send {"notify": false}.
+    # The body is optional; the panel may send {"notify": false, "refund": true, "amount": 20}.
     data = request.get_json(force=True, silent=True)
-    notify = bool(data.get("notify", True)) if isinstance(data, dict) else True
+    data = data if isinstance(data, dict) else {}
+    notify = bool(data.get("notify", True))
+    refunded = 0
+    # A hold is always released: an unconfirmed booking can't keep the client's money.
+    if booking.payment_status == "authorized" or data.get("refund"):
+        try:
+            refunded = payments.release_or_refund(booking, _refund_amount(data))
+        except payments.PaymentError as e:
+            db.session.rollback()
+            return jsonify({"error": "refund_failed", "message": str(e)}), 409
     booking.status = "cancelado"
     booking.updated_at = utcnow()
     db.session.commit()
@@ -435,8 +461,39 @@ def cancel_booking_admin(reference):
         calendar_service.delete_event(booking.google_event_id)
     # No nutritionist email: she cancelled it herself, and that template says the client did.
     if notify:
-        email_service.send_booking_cancelled_client(booking)
+        email_service.send_booking_cancelled_client(booking, refunded)
     return jsonify({"booking": _booking_admin_dict(booking)})
+
+
+def _refund_amount(data):
+    """The amount in a refund request, or None for 'everything left'."""
+    if data.get("amount") in (None, ""):
+        return None
+    return _number(data["amount"], "amount", float, 0.01, 1000)
+
+
+@admin_bp.route("/bookings/<reference>/refund", methods=["POST"])
+@auth.require_admin
+def refund_booking_admin(reference):
+    """A manual refund of any amount up to what is left, e.g. agreed with a client
+    who cancelled inside the notice period."""
+    booking = Booking.query.filter_by(reference=reference.upper()).first()
+    if not booking:
+        return jsonify({"error": "not_found"}), 404
+    data = request.get_json(force=True, silent=True)
+    data = data if isinstance(data, dict) else {}
+    if payments.refundable(booking) <= 0:
+        return jsonify({"error": "nothing_to_refund"}), 400
+    try:
+        refunded = payments.release_or_refund(booking, _refund_amount(data))
+    except payments.PaymentError as e:
+        db.session.rollback()
+        return jsonify({"error": "refund_failed", "message": str(e)}), 409
+    booking.updated_at = utcnow()
+    db.session.commit()
+    if data.get("notify", True):
+        email_service.send_refund_client(booking, refunded)
+    return jsonify({"booking": _booking_admin_dict(booking), "refunded": float(refunded)})
 
 
 @admin_bp.route("/bookings/<reference>", methods=["DELETE"])

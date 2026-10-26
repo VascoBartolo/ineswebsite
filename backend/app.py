@@ -10,6 +10,7 @@ from flask_limiter.util import get_remote_address
 from sqlalchemy import text
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
+import stripe
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,6 +22,8 @@ logger = logging.getLogger("ibnutricao")
 from models import db, Booking, generate_unique_reference, utcnow
 import calendar_service
 import email_service
+import legal
+import payments
 from validation import (
     BOOKING_LIMITS, CLINICS, EMAIL_RE, REGIMES, SUJEITOS, TIPOS_CONSULTA,
     BadInput, choice, int_arg, json_body, parse_date, parse_time, s, too_long,
@@ -78,6 +81,9 @@ app.register_blueprint(admin_bp)
 
 from booking_action_routes import booking_action_bp
 app.register_blueprint(booking_action_bp)
+
+from payment_routes import payment_bp
+app.register_blueprint(payment_bp)
 
 limiter.limit("5 per minute")(app.view_functions["admin.login"])
 # Booking-action links are clicked by the nutritionist from email; keep them usable
@@ -149,11 +155,19 @@ def compute_duration(sujeito: str, is_first: bool) -> int:
 def db_busy_intervals_range(start_date, end_date):
     """Confirmed DB bookings in [start_date, end_date] bucketed by date, as event
     dicts compatible with calendar_service. One query for the whole range."""
+    now = utcnow()
     bookings = Booking.query.filter(
         Booking.slot_date >= start_date,
         Booking.slot_date <= end_date,
-        # Pending requests hold the slot too — not only nutritionist-approved ones.
-        Booking.status.in_(["pendente", "confirmado"]),
+        db.or_(
+            Booking.status == "confirmado",
+            # Pending requests hold the slot too, until their payment deadline
+            # lapses; expired ones are freed lazily, without a scheduler.
+            db.and_(Booking.status == "pendente",
+                    db.or_(Booking.capture_before.is_(None), Booking.capture_before > now)),
+            # An open Checkout holds it only for the length of the hold.
+            db.and_(Booking.status == "aguarda_pagamento", Booking.hold_expires_at > now),
+        ),
     ).all()
     buckets = {}
     for b in bookings:
@@ -242,11 +256,18 @@ def availability_month():
     return jsonify({"year": year, "month": month, "days": days})
 
 
-@app.route("/api/bookings", methods=["POST"])
-@limiter.limit("10 per minute")
-def create_booking():
-    data = json_body()
+class SlotUnavailable(Exception):
+    pass
 
+
+@app.errorhandler(SlotUnavailable)
+def slot_unavailable(e):
+    return jsonify({"error": "slot_unavailable", "message": "Este horário já não está disponível. Por favor escolha outro."}), 409
+
+
+def booking_from_form(data, status):
+    """Validate the public booking form, lock the day and re-check the slot.
+    Returns an unsaved Booking; the day's lock is held until the caller commits."""
     idade = data.get("idade")
     idade = str(idade).strip() if isinstance(idade, (str, int)) and not isinstance(idade, bool) else ""
     values = {f: s(data, f) for f in ("sujeito", "tipo_consulta", "regime", "nome", "email", "contacto")}
@@ -254,13 +275,17 @@ def create_booking():
     required = ["sujeito", "tipo_consulta", "regime", "nome", "idade", "email", "contacto", "slot_date", "slot_time"]
     missing = [f for f in required if not (values[f] if f in values else data.get(f))]
     if missing:
-        return jsonify({"error": f"missing fields: {', '.join(missing)}"}), 400
+        raise BadInput(f"missing fields: {', '.join(missing)}")
 
     field = too_long(data, BOOKING_LIMITS)
     if field:
-        return jsonify({"error": "field_too_long", "field": field}), 400
+        raise BadInput("field_too_long", field)
     if not EMAIL_RE.match(values["email"]):
-        return jsonify({"error": "invalid_email", "message": "Email inválido."}), 400
+        raise BadInput("invalid_email", message="Email inválido.")
+    # The checkbox is UX; this is the control. The timestamp is taken here, never
+    # from the client, so it stands as evidence.
+    if data.get("terms_accepted") is not True:
+        raise BadInput("terms_not_accepted", message="É necessário aceitar os Termos e Condições e a Política de Privacidade.")
 
     # Price and duration derive from these, so only the options the form offers are accepted.
     sujeito = choice(data, "sujeito", SUJEITOS)
@@ -291,12 +316,10 @@ def create_booking():
     all_events = db_busy_intervals(slot_date) + calendar_service.get_gcal_events(slot_date)
     available = calendar_service.get_available_slots(slot_date, duration, all_events, new_location)
     if slot_time.strftime("%H:%M") not in available:
-        return jsonify({"error": "slot_unavailable", "message": "Este horário já não está disponível. Por favor escolha outro."}), 409
+        raise SlotUnavailable()
 
-    reference = generate_unique_reference()
-
-    booking = Booking(
-        reference=reference,
+    return Booking(
+        reference=generate_unique_reference(),
         sujeito=sujeito,
         tipo_consulta=tipo_consulta,
         regime=regime,
@@ -311,8 +334,20 @@ def create_booking():
         duration_minutes=duration,
         price=price,
         is_first=is_first,
-        status="pendente",
+        status=status,
+        terms_accepted_at=utcnow(),
+        terms_version=legal.TERMS_VERSION,
     )
+
+
+@app.route("/api/bookings", methods=["POST"])
+@limiter.limit("10 per minute")
+def create_booking():
+    data = json_body()
+    # Online consultations are paid up front through /api/payments/checkout.
+    if s(data, "regime").lower() == "online":
+        return jsonify({"error": "payment_required"}), 400
+    booking = booking_from_form(data, "pendente")
 
     db.session.add(booking)
     db.session.commit()
@@ -328,6 +363,43 @@ def create_booking():
     email_service.send_nutritionist_new_booking(booking)
 
     return jsonify({"booking": booking.to_dict()}), 201
+
+
+@app.route("/api/payments/checkout", methods=["POST"])
+@limiter.limit("10 per minute")
+def create_checkout():
+    """The online variant of create_booking: the slot is held while the client
+    pays on Stripe, and the stripe webhook turns it into a pendente request."""
+    data = json_body()
+    if s(data, "regime").lower() != "online":
+        return jsonify({"error": "online_only"}), 400
+    if not payments.enabled():
+        return jsonify({"error": "payments_unavailable",
+                        "message": "Os pagamentos online estão temporariamente indisponíveis."}), 503
+    booking = booking_from_form(data, "aguarda_pagamento")
+    try:
+        session = payments.create_checkout(booking)
+    except stripe.StripeError as e:
+        db.session.rollback()
+        logger.error("Checkout creation failed: %s", e)
+        return jsonify({"error": "payment_error",
+                        "message": "Não foi possível iniciar o pagamento. Tente novamente."}), 502
+    db.session.add(booking)
+    db.session.commit()
+    return jsonify({"url": session.url, "reference": booking.reference}), 201
+
+
+@app.route("/api/payments/<reference>/abandon", methods=["POST"])
+@limiter.limit("10 per minute")
+def abandon_checkout(reference):
+    """The client came back from Checkout without paying: free the slot now, not
+    when the hold lapses, so they can choose it again. Only an unpaid Checkout is
+    affected, and the reference is unguessable."""
+    booking = Booking.query.filter_by(reference=reference.upper()).first()
+    if booking and booking.status == "aguarda_pagamento" and payments.expire_checkout(booking):
+        booking.status = "cancelado"
+        db.session.commit()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/contact", methods=["POST"])
@@ -394,6 +466,16 @@ def cancel_booking(reference):
     if slot_dt < calendar_service.now_azores():
         return jsonify({"error": "past_booking", "message": "Não é possível cancelar uma consulta passada."}), 400
 
+    # Settle the money first: a failed refund must leave the booking as it was,
+    # not cancelled with the client still charged.
+    try:
+        refunded = payments.client_cancel(booking)
+    except payments.PaymentError as e:
+        db.session.rollback()
+        logger.error("Client cancel: refund failed for %s: %s", booking.reference, e)
+        return jsonify({"error": "refund_failed",
+                        "message": "Não foi possível processar o reembolso. Por favor contacte-nos."}), 502
+
     booking.status = "cancelado"
     booking.updated_at = utcnow()
     db.session.commit()
@@ -401,10 +483,10 @@ def cancel_booking(reference):
     if booking.google_event_id:
         calendar_service.delete_event(booking.google_event_id)
 
-    email_service.send_booking_cancelled_client(booking)
+    email_service.send_booking_cancelled_client(booking, refunded)
     email_service.send_nutritionist_cancellation(booking)
 
-    return jsonify({"message": "cancelled", "booking": booking.to_dict()})
+    return jsonify({"message": "cancelled", "refunded": float(refunded), "booking": booking.to_dict()})
 
 
 @app.route("/api/bookings/<reference>/edit-request", methods=["PUT"])

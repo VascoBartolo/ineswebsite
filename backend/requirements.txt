@@ -9,3 +9,5 @@ gunicorn==23.0.0
 python-dotenv==1.2.3
 SQLAlchemy==2.0.29
 flask-limiter==3.5.1
+# Pins the Stripe API version (2026-08-26.dahlia); per-method manual capture in Checkout needs ≥ 2025-09-30.
+stripe==15.6.1
