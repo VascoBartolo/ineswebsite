@@ -122,11 +122,11 @@ if (-not $pgExists) {
     az postgres flexible-server db create -g $ResourceGroup -s $PgServer -d $PgDb --only-show-errors | Out-Null
 }
 # Allow Azure-internal services (covers ACA egress, which can vary) + this machine.
-az postgres flexible-server firewall-rule create -g $ResourceGroup -n $PgServer `
-    --rule-name allow-azure-services --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0 --only-show-errors | Out-Null
+az postgres flexible-server firewall-rule create -g $ResourceGroup --server-name $PgServer `
+    --name allow-azure-services --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0 --only-show-errors | Out-Null
 $myIp = (Invoke-RestMethod -Uri "https://api.ipify.org").Trim()
-az postgres flexible-server firewall-rule create -g $ResourceGroup -n $PgServer `
-    --rule-name deployer --start-ip-address $myIp --end-ip-address $myIp --only-show-errors | Out-Null
+az postgres flexible-server firewall-rule create -g $ResourceGroup --server-name $PgServer `
+    --name deployer --start-ip-address $myIp --end-ip-address $myIp --only-show-errors | Out-Null
 $pgFqdn = az postgres flexible-server show -n $PgServer -g $ResourceGroup --query "fullyQualifiedDomainName" -o tsv
 # Only when we hold a trusted password. Left $null on an existing-server re-run so the
 # secret-set below leaves the working database-url untouched.
