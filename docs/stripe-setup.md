@@ -38,8 +38,9 @@ with the name given here.
    - **On:** Cards, Apple Pay, Google Pay, **MB WAY**.
    - **PayPal:** *Turn on*. Stripe asks you to connect or create a **PayPal Business** account;
      approval can take a few days.
-   - **Off:** Multibanco, Klarna, everything else. The code passes the method list explicitly
-     (`backend/payments.py`, `METHODS`), but keeping the dashboard in sync avoids surprises.
+   - **Off:** everything else. **This list is what clients see**: the code takes the methods
+     from the dashboard, so only switch on what Inês wants to accept. Multibanco is always
+     excluded in code (`backend/payments.py`, `EXCLUDED_METHODS`) because it settles days later.
    - **PayPal**: the dashboard asks for a registered domain — PayPal → *Configurar domínios* →
      add `inesbandarranutricao.com` (in the sandbox *and* in live mode). Checkout decides per
      browser which methods to show: embedded/automated browsers may hide PayPal next to other

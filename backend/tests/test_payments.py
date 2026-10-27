@@ -132,6 +132,9 @@ def test_checkout_price_is_server_side_and_generic(client, app, fake_stripe):
     assert "gravidez" not in str(kw).lower()
     assert kw["payment_method_options"] == {"card": {"capture_method": "manual"},
                                             "paypal": {"capture_method": "manual"}}
+    # The dashboard decides the methods; an inactive one must not break checkout.
+    assert "payment_method_types" not in kw
+    assert kw["excluded_payment_method_types"] == ["multibanco"]
     with app.app_context():
         b = Booking.query.one()
         assert b.status == "aguarda_pagamento" and b.payment_status == "pending"

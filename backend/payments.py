@@ -27,7 +27,10 @@ SLOT_HOLD = timedelta(minutes=35)
 # shortest card hold, so one rule fits every method.
 CONFIRM_WINDOW = timedelta(days=5)
 
-METHODS = ["card", "paypal", "mb_way"]
+# Which methods appear is set in the Stripe dashboard, so one that is not yet
+# activated (e.g. PayPal pending approval) can't break checkout. Multibanco is
+# settled days later, long after the slot hold, so it is never offered.
+EXCLUDED_METHODS = ["multibanco"]
 
 
 class PaymentError(Exception):
@@ -60,7 +63,7 @@ def create_checkout(booking):
                 "product_data": {"name": "Consulta de nutrição online"},
             },
         }],
-        payment_method_types=METHODS,
+        excluded_payment_method_types=EXCLUDED_METHODS,
         payment_method_options={
             "card": {"capture_method": "manual"},
             "paypal": {"capture_method": "manual"},
