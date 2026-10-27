@@ -9,6 +9,15 @@ export default function TermsConditions() {
       title="Termos e Condições"
       documentTitle="Termos e Condições"
     >
+      <TermsBody />
+    </LegalLayout>
+  );
+}
+
+// Also shown inside the booking checkout, where links must open in a new tab so the form isn't lost.
+export function TermsBody({ linkTarget }) {
+  return (
+    <>
       <p className="legal-intro">
         Os presentes Termos e Condições regulam o acesso e a utilização do site{' '}
         {ENTITY.siteLabel} e de todos os serviços nele disponibilizados, incluindo o sistema de
@@ -55,7 +64,7 @@ export default function TermsConditions() {
         <p>
           A utilização do site implica a aceitação integral e sem reservas destes Termos e
           Condições, bem como da{' '}
-          <Link to="/politica-de-privacidade">Política de Privacidade</Link>. Quem não concorde
+          <Link to="/politica-de-privacidade" target={linkTarget}>Política de Privacidade</Link>. Quem não concorde
           com os mesmos deve abster-se de utilizar o site e os seus serviços.
         </p>
         <p>
@@ -156,7 +165,7 @@ export default function TermsConditions() {
           que disponibilize esses dados. Sempre que tal se justifique, será recomendada uma
           consulta presencial. As condições de privacidade e confidencialidade e os riscos
           associados à utilização de meios digitais estão descritos na{' '}
-          <Link to="/politica-de-privacidade">Política de Privacidade</Link>.
+          <Link to="/politica-de-privacidade" target={linkTarget}>Política de Privacidade</Link>.
         </p>
       </section>
 
@@ -342,7 +351,7 @@ export default function TermsConditions() {
         <h2>13. Proteção de dados e segredo profissional</h2>
         <p>
           O tratamento de dados pessoais é descrito em detalhe na{' '}
-          <Link to="/politica-de-privacidade">Política de Privacidade</Link>, que faz parte
+          <Link to="/politica-de-privacidade" target={linkTarget}>Política de Privacidade</Link>, que faz parte
           integrante destes termos. Toda a informação clínica está abrangida pelo segredo
           profissional a que a nutricionista está vinculada.
         </p>
@@ -405,6 +414,6 @@ export default function TermsConditions() {
           corresponda ao fim pretendido.
         </p>
       </section>
-    </LegalLayout>
+    </>
   );
 }

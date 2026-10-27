@@ -750,6 +750,23 @@
 }
 .terms-consent input { margin-top: 0.2rem; accent-color: var(--crimson); flex-shrink: 0; }
 .terms-consent a { color: var(--crimson); }
+.terms-consent.is-disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Doubled class to beat LegalPage.css, which is imported after this file. */
+.terms-scroll.legal-content {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--blush);
+  border-radius: var(--radius);
+  background: var(--white);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.terms-scroll.legal-content section { margin-top: 1.5rem; }
+.terms-scroll.legal-content h2 { font-size: 1rem; }
+.terms-scroll-hint { margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted); }
 
 .cancel-payment-note { font-size: 0.875rem; color: var(--crimson); }
 
