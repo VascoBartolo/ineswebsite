@@ -6,6 +6,8 @@ import './BookingPage.css';
 import SkipLink from '../components/SkipLink';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { ENTITY, CANCELLATION_NOTICE_HOURS } from './legalInfo';
+import { TermsBody } from './TermsConditions';
+import './LegalPage.css';
 import { CONSULTATION_TYPES, CLINICS } from '../constants/booking';
 import {
   PRACTICE_TZ, practiceOffset, localMinusPractice, fmtUtcOffset, fmtOffsetDiff, shiftTime, slotInstant,
@@ -273,6 +275,7 @@ const emptyForm = {
   email: '',
   contacto: '',
   contexto: '',
+  termsRead: false,
   termsAccepted: false,
 };
 
@@ -951,10 +954,29 @@ export default function BookingPage() {
                         </div>
                       )}
 
-                      <label className="terms-consent">
+                      <div
+                        className="terms-scroll legal-content"
+                        // Focusable so keyboard users can scroll it.
+                        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+                        tabIndex={0}
+                        role="region"
+                        aria-label="Termos e Condições"
+                        onScroll={e => {
+                          const el = e.currentTarget;
+                          if (!form.termsRead && el.scrollTop + el.clientHeight >= el.scrollHeight - 8) setField('termsRead', true);
+                        }}
+                      >
+                        <TermsBody linkTarget="_blank" />
+                      </div>
+                      {!form.termsRead && (
+                        <p className="terms-scroll-hint">Leia os Termos e Condições até ao fim para poder aceitar.</p>
+                      )}
+
+                      <label className={`terms-consent${form.termsRead ? '' : ' is-disabled'}`}>
                         <input
                           type="checkbox"
                           checked={form.termsAccepted}
+                          disabled={!form.termsRead}
                           onChange={e => setField('termsAccepted', e.target.checked)}
                         />
                         <span>
