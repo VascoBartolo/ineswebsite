@@ -10,6 +10,7 @@ import pytz
 from markupsafe import escape
 
 import auth
+import legal
 from calendar_service import TIMEZONE
 
 logger = logging.getLogger("ibnutricao.email")
@@ -187,11 +188,12 @@ def _payment_note(booking):
 def _cancel_note(booking):
     """The cancellation rule, plus which Terms the client accepted (DL 24/2014
     art. 6.º: the contract confirmed on a durable medium)."""
+    hours = legal.CANCELLATION_NOTICE_HOURS
     if booking.payment_status:
-        rule = ("Cancelamentos com pelo menos 24 horas de antecedência são reembolsados na "
-                "totalidade; com menos de 24 horas não há lugar a reembolso.")
+        rule = (f"Cancelamentos com pelo menos {hours} horas de antecedência são reembolsados na "
+                f"totalidade; com menos de {hours} horas não há lugar a reembolso.")
     else:
-        rule = "Pedimos que eventuais cancelamentos sejam feitos com pelo menos 24 horas de antecedência."
+        rule = f"Pedimos que eventuais cancelamentos sejam feitos com pelo menos {hours} horas de antecedência."
     terms = (f' Aplicam-se os <a href="{SITE_URL}/termos-e-condicoes" style="color:#B94448;">Termos e '
              f'Condições</a> aceites na marcação (versão {escape(booking.terms_version)}).'
              if booking.terms_version else "")
