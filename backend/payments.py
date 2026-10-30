@@ -26,6 +26,10 @@ SLOT_HOLD = timedelta(minutes=35)
 # Confirmation deadline when Stripe gives none (PayPal, MB WAY). Below the
 # shortest card hold, so one rule fits every method.
 CONFIRM_WINDOW = timedelta(days=5)
+# A payment link the nutritionist sends for a booking she created. 24h is
+# Stripe's maximum Checkout lifetime; the hold again outlasts it.
+LINK_LIFETIME = timedelta(hours=23, minutes=55)
+LINK_HOLD = timedelta(hours=24)
 
 # Which methods appear is set in the Stripe dashboard, so one that is not yet
 # activated (e.g. PayPal pending approval) can't break checkout. Multibanco is
@@ -49,8 +53,31 @@ def _euros(cents):
     return Decimal(cents) / 100
 
 
-def create_checkout(booking):
-    """Open a Checkout Session for a booking already in aguarda_pagamento."""
+def create_checkout(booking, admin_link=False):
+    """Open a Checkout Session for a booking already in aguarda_pagamento.
+
+    admin_link: a booking the nutritionist created herself, so it is charged at
+    once and confirmed on payment, with no approval step."""
+    if admin_link:
+        lifetime, hold = LINK_LIFETIME, LINK_HOLD
+        extra = {
+            "metadata": {"admin_link": "1"},
+            "consent_collection": {"terms_of_service": "required"},
+            "custom_text": {"submit": {"message": (
+                f"O pagamento confirma a consulta {booking.reference} de "
+                f"{booking.slot_date.strftime('%d/%m/%Y')} às {booking.slot_time.strftime('%H:%M')} "
+                "(hora dos Açores). Este link é válido durante 24 horas; se não for pago até lá, "
+                "o horário é libertado.")}},
+        }
+        # No cancel_url, so no back button: returning would abandon (cancel) the booking.
+        result = "confirmado"
+    else:
+        lifetime, hold = CHECKOUT_LIFETIME, SLOT_HOLD
+        extra = {"payment_method_options": {
+            "card": {"capture_method": "manual"},
+            "paypal": {"capture_method": "manual"},
+        }, "cancel_url": f"{SITE_URL}/marcar-consulta?pagamento=cancelado&ref={booking.reference}"}
+        result = "ok"
     session = stripe.checkout.Session.create(
         mode="payment",
         line_items=[{
@@ -64,22 +91,28 @@ def create_checkout(booking):
             },
         }],
         excluded_payment_method_types=EXCLUDED_METHODS,
-        payment_method_options={
-            "card": {"capture_method": "manual"},
-            "paypal": {"capture_method": "manual"},
-        },
         payment_intent_data={"description": booking.reference},
         customer_email=booking.email,
         client_reference_id=booking.reference,
         locale="pt",
-        expires_at=int(time.time() + CHECKOUT_LIFETIME.total_seconds()),
-        success_url=f"{SITE_URL}/marcar-consulta?pagamento=ok&ref={booking.reference}",
-        cancel_url=f"{SITE_URL}/marcar-consulta?pagamento=cancelado&ref={booking.reference}",
+        expires_at=int(time.time() + lifetime.total_seconds()),
+        success_url=f"{SITE_URL}/marcar-consulta?pagamento={result}&ref={booking.reference}",
+        **extra,
     )
     booking.stripe_session_id = session.id
     booking.payment_status = "pending"
-    booking.hold_expires_at = utcnow() + SLOT_HOLD
+    booking.hold_expires_at = utcnow() + hold
     return session
+
+
+def checkout_url(booking):
+    """The open Checkout's URL, to copy the payment link again."""
+    return stripe.checkout.Session.retrieve(booking.stripe_session_id).url
+
+
+def is_admin_link(session):
+    # A StripeObject is not a dict: read keys as attributes.
+    return getattr(getattr(session, "metadata", None), "admin_link", None) == "1"
 
 
 def expire_checkout(booking):
@@ -119,6 +152,13 @@ def apply_completed_session(booking, session):
         # Still processing: the async_payment_* webhook finishes the job.
         return False
     booking.status = "pendente"
+    if is_admin_link(session):
+        booking.status = "confirmado"
+        booking.capture_before = None
+        consent = getattr(session, "consent", None)
+        if getattr(consent, "terms_of_service", None) == "accepted":
+            booking.terms_accepted_at = now
+            booking.terms_version = legal.TERMS_VERSION
     booking.hold_expires_at = None
     booking.updated_at = now
     return True

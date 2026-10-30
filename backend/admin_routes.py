@@ -1,5 +1,8 @@
+import logging
 import time
 from datetime import timedelta
+
+import stripe
 from flask import Blueprint, request, jsonify
 
 import auth
@@ -13,6 +16,8 @@ from validation import (
     BOOKING_LIMITS, EMAIL_RE, REGIMES, STATUSES,
     BadInput, choice, date_arg, int_arg, json_body, parse_date, parse_time, too_long,
 )
+
+logger = logging.getLogger("ibnutricao.admin")
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -342,9 +347,16 @@ def create_booking_admin():
     if missing:
         return jsonify({"error": "missing_fields", "fields": missing}), 400
 
-    fields = _clean_fields({**data, "status": data.get("status") or "confirmado"})
+    # A payment link: the booking waits for the client's payment, which confirms it.
+    payment_link = bool(data.get("payment_link"))
+    status = "aguarda_pagamento" if payment_link else (data.get("status") or "confirmado")
+    fields = _clean_fields({**data, "status": status})
     if fields["regime"].lower() == "online":
         fields["local_consulta"] = None
+    elif payment_link:
+        return jsonify({"error": "online_only"}), 400
+    if payment_link and not payments.enabled():
+        return jsonify({"error": "payments_unavailable"}), 503
 
     booking = Booking(
         reference=generate_unique_reference(),
@@ -364,8 +376,24 @@ def create_booking_admin():
         is_first=_parse_is_first(data.get("is_first")),
         status=fields["status"],
     )
+    if payment_link:
+        try:
+            session = payments.create_checkout(booking, admin_link=True)
+        except stripe.StripeError as e:
+            logger.error("Payment link creation failed: %s", e)
+            return jsonify({"error": "payment_error", "message": str(e)}), 502
     db.session.add(booking)
     db.session.commit()
+
+    if payment_link:
+        partial = []
+        if bool(data.get("notify", False)):
+            try:
+                email_service.send_payment_link_client(booking, session.url)
+            except Exception as e:
+                partial.append(f"email: {e}")
+        return jsonify({"booking": _booking_admin_dict(booking), "payment_url": session.url,
+                        "partial_failures": partial}), 201
 
     partial = []
     try:
@@ -447,6 +475,9 @@ def cancel_booking_admin(reference):
     data = data if isinstance(data, dict) else {}
     notify = bool(data.get("notify", True))
     refunded = 0
+    # An unpaid Checkout (e.g. a payment link she sent): close it so it can't be paid.
+    if booking.payment_status == "pending":
+        payments.expire_checkout(booking)
     # A hold is always released: an unconfirmed booking can't keep the client's money.
     if booking.payment_status == "authorized" or data.get("refund"):
         try:
@@ -476,7 +507,7 @@ def _refund_amount(data):
 @auth.require_admin
 def refund_booking_admin(reference):
     """A manual refund of any amount up to what is left, e.g. agreed with a client
-    who cancelled inside the notice period."""
+    who cancelled inside the notice period. A refund always cancels the booking."""
     booking = Booking.query.filter_by(reference=reference.upper()).first()
     if not booking:
         return jsonify({"error": "not_found"}), 404
@@ -489,11 +520,33 @@ def refund_booking_admin(reference):
     except payments.PaymentError as e:
         db.session.rollback()
         return jsonify({"error": "refund_failed", "message": str(e)}), 409
+    was_cancelled = booking.status == "cancelado"
+    booking.status = "cancelado"
     booking.updated_at = utcnow()
     db.session.commit()
+    if booking.google_event_id:
+        calendar_service.delete_event(booking.google_event_id)
+        booking.google_event_id = None
+        db.session.commit()
     if data.get("notify", True):
-        email_service.send_refund_client(booking, refunded)
+        # One email: the cancellation one already states the refund.
+        if was_cancelled:
+            email_service.send_refund_client(booking, refunded)
+        else:
+            email_service.send_booking_cancelled_client(booking, refunded)
     return jsonify({"booking": _booking_admin_dict(booking), "refunded": float(refunded)})
+
+
+@admin_bp.route("/bookings/<reference>/payment-link")
+@auth.require_admin
+def payment_link(reference):
+    booking = Booking.query.filter_by(reference=reference.upper()).first()
+    if not booking or booking.status != "aguarda_pagamento" or booking.payment_status != "pending":
+        return jsonify({"error": "not_found"}), 404
+    try:
+        return jsonify({"url": payments.checkout_url(booking)})
+    except stripe.StripeError as e:
+        return jsonify({"error": "payment_error", "message": str(e)}), 502
 
 
 @admin_bp.route("/bookings/<reference>", methods=["DELETE"])
@@ -502,6 +555,9 @@ def delete_booking_admin(reference):
     booking = Booking.query.filter_by(reference=reference.upper()).first()
     if not booking:
         return jsonify({"error": "not_found"}), 404
+    # A payment arriving for a deleted booking would match nothing.
+    if booking.payment_status == "pending":
+        payments.expire_checkout(booking)
     if booking.google_event_id:
         calendar_service.delete_event(booking.google_event_id)
     db.session.delete(booking)

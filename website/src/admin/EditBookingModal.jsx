@@ -38,6 +38,10 @@ function saveErrorMessage(body) {
       return 'Verifique a data, a hora, a duração e o preço.';
     case 'capture_failed':
       return 'Não foi possível cobrar o pagamento (a cativação pode ter expirado), pelo que a marcação não foi confirmada.';
+    case 'payments_unavailable':
+      return 'Os pagamentos online não estão configurados.';
+    case 'payment_error':
+      return `Não foi possível criar o link de pagamento${body.message ? `: ${body.message}` : '.'}`;
     default:
       if (body?.error?.startsWith('invalid_') && name) return `Valor inválido em: ${name}.`;
       return 'Não foi possível guardar.';
@@ -52,7 +56,15 @@ const EMPTY = {
   duration_minutes: 60, local_consulta: '', status: 'confirmado', is_first: '',
 };
 
-export default function EditBookingModal({ booking, create = false, locations = [], onClose, onSaved }) {
+// Same rule as the public form and compute_price: online is always 50€; presencial
+// is 55€ for a first consultation, 50€ otherwise. 60 min for a first, 45 for a follow-up.
+function withDefaults(f) {
+  const price = f.regime === 'online' ? 50 : f.is_first === 'true' ? 55 : 50;
+  const duration = f.is_first === 'true' ? 60 : f.is_first === 'false' ? 45 : f.duration_minutes;
+  return { ...f, price, duration_minutes: duration };
+}
+
+export default function EditBookingModal({ booking, create = false, locations = [], onClose, onSaved, onRefund }) {
   const [form, setForm] = useState(() => {
     const base = create ? EMPTY : booking;
     // A <select> holds strings; is_first travels as true/false/null.
@@ -61,17 +73,27 @@ export default function EditBookingModal({ booking, create = false, locations = 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [askSend, setAskSend] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const [payLink, setPayLink] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [copied, setCopied] = useState(false);
+  const withLink = create && payLink && form.regime === 'online';
+  // Once the link exists the booking is saved, so any close must refresh the list.
+  const close = linkUrl ? onSaved : onClose;
+  const set = (k) => (e) => setForm((f) => {
+    const next = { ...f, [k]: e.target.value };
+    // Only a new booking is priced automatically; an existing one keeps what was agreed.
+    return create && ['tipo_consulta', 'regime', 'is_first'].includes(k) ? withDefaults(next) : next;
+  });
   const dialogRef = useRef(null);
   useDialogFocus(dialogRef);
 
   // Escape closes the modal, matching the backdrop click. Ignored mid-save so a
   // stray keypress cannot dismiss the dialog while a request is in flight.
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !busy) onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape' && !busy) close(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [busy, onClose]);
+  }, [busy, close]);
 
   // A booking may already hold a type this list no longer offers (an older name,
   // or one typed by hand). Show it as its own option so opening the modal cannot
@@ -96,10 +118,14 @@ export default function EditBookingModal({ booking, create = false, locations = 
       // '' means "not recorded" and must stay null, not collapse to false.
       is_first: form.is_first === '' ? null : form.is_first === 'true',
       notify,
+      payment_link: withLink,
     };
     try {
-      if (create) await adminApi.createBooking(payload);
-      else await adminApi.editBooking(booking.reference, payload);
+      if (create) {
+        const res = await adminApi.createBooking(payload);
+        // Keep the modal open so she can copy the link to send it.
+        if (res.payment_url) { setLinkUrl(res.payment_url); setBusy(false); return; }
+      } else await adminApi.editBooking(booking.reference, payload);
       onSaved();
     } catch (e) {
       setErr(saveErrorMessage(e?.body));
@@ -111,7 +137,7 @@ export default function EditBookingModal({ booking, create = false, locations = 
     // A click on the backdrop itself closes (Escape is the keyboard equivalent);
     // inert mid-save, like Escape, so a stray click cannot discard edits in flight.
     <div className="modal-backdrop" role="presentation"
-         onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+         onClick={(e) => { if (e.target === e.currentTarget && !busy) close(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title"
            ref={dialogRef}>
         <h3 id="edit-modal-title">{create ? 'Nova marcação' : `Editar ${booking.reference}`}</h3>
@@ -160,33 +186,58 @@ export default function EditBookingModal({ booking, create = false, locations = 
               <option value="true">Primeira consulta</option>
               <option value="false">Consulta de seguimento</option>
             </select></div>
-          <div className="fld"><label htmlFor="em-status">Estado</label>
+          {!withLink && <div className="fld"><label htmlFor="em-status">Estado</label>
             <select id="em-status" value={form.status} onChange={set('status')}>
               <option value="pendente">Pendente</option><option value="confirmado">Confirmado</option><option value="revisao">Necessita Alteração</option><option value="cancelado">Cancelado</option>
-            </select></div>
+            </select></div>}
         </div>
+        {create && form.regime === 'online' && (
+          <label htmlFor="em-paylink" className={`modal-option${payLink ? ' on' : ''}`}>
+            <input id="em-paylink" type="checkbox" checked={payLink} onChange={(e) => setPayLink(e.target.checked)} disabled={busy || !!linkUrl} />
+            <strong>Criar link de pagamento</strong>
+            <span className="sub">A consulta só fica confirmada após o pagamento. Se não for paga em 24h, é cancelada e o horário libertado.</span>
+          </label>
+        )}
         {booking?.payment_status === 'authorized' && (
           <p className="modal-note">Pagamento cativo: ao guardar como <strong>Confirmado</strong>, o valor é cobrado ao cliente.</p>
         )}
         </div>
         <div className="modal-foot">
         {err && <p className="modal-err" role="alert">{err}</p>}
-        {!askSend ? (
+        {linkUrl ? (
+          <>
+            <p className="modal-note">Marcação criada, a aguardar pagamento. Envie este link ao cliente (válido 24h):</p>
+            <input aria-label="Link de pagamento" readOnly value={linkUrl} style={{ width: '100%' }} onFocus={(e) => e.target.select()} />
+            <div className="modal-actions">
+              <button className="btn-ghost" onClick={async () => {
+                try { await navigator.clipboard.writeText(linkUrl); setCopied(true); } catch { /* the field stays selectable */ }
+              }}>{copied ? 'Copiado ✓' : 'Copiar link'}</button>
+              <button className="btn-red" onClick={onSaved}>Fechar</button>
+            </div>
+          </>
+        ) : !askSend ? (
           <>
             <p className="modal-note">
-              {create
+              {withLink
+                ? 'O horário fica reservado e o evento no Google Calendar é criado quando o cliente pagar.'
+                : create
                 ? 'A marcação é criada sem verificar a disponibilidade do horário, e é refletida automaticamente no Google Calendar.'
                 : 'Ao guardar, a alteração é refletida automaticamente no Google Calendar.'}
             </p>
             <div className="modal-actions">
               <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+              {!create && booking.refundable > 0 && onRefund && (
+                <button className="btn-ghost" onClick={onRefund} disabled={busy}>Reembolsar</button>
+              )}
               <button className="btn-red" onClick={() => setAskSend(true)} disabled={busy}>{create ? 'Criar' : 'Guardar'}</button>
             </div>
           </>
         ) : (
           <>
             <p className="modal-note">
-              {create
+              {withLink
+                ? 'Enviar também o link de pagamento por email ao cliente?'
+                : create
                 ? 'Enviar um email ao cliente com os detalhes da marcação?'
                 : 'Enviar um email ao cliente com os novos detalhes da marcação?'}
             </p>

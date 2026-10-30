@@ -5,6 +5,12 @@ Cards (incl. Apple Pay / Google Pay) and PayPal are **held** and only **charged 
 confirms**; MB WAY is charged at once and refunded if the booking is not confirmed. Presencial
 consultations are not paid online.
 
+**Payment links (admin):** when Inês creates an online booking in the admin panel she can tick
+*Criar link de pagamento*. The booking holds the slot as *A aguardar pagamento*, the link is a
+Checkout charged at once (no approval step), and the booking is confirmed when paid. Unpaid
+links expire after 24h (Stripe's maximum) and the slot is freed by the `checkout.session.expired`
+webhook.
+
 Dashboard menu names drift over time. If a label differs, use the dashboard search bar (top)
 with the name given here.
 
@@ -48,6 +54,9 @@ with the name given here.
    - Apple Pay and Google Pay need nothing extra. Google Pay only shows in Chrome with a card
      saved in the Google account; Apple Pay only in Safari/Apple devices with Wallet set up.
 7. Settings → **Branding**: logo, brand colour; check the Checkout preview.
+7b. Settings → Business → **Public details** → *Terms of service* URL:
+    `https://inesbandarranutricao.com/termos-e-condicoes`. Payment links require the client to
+    accept it on Checkout; without it, creating a link fails. Set it in the sandbox **and** live.
 8. Settings → **Customer emails**: optionally turn on *Successful payments* and *Refunds*
    receipts. These are Stripe receipts, **not** faturas — the fatura-recibo still comes from
    Portal das Finanças.

@@ -305,7 +305,7 @@ export default function BookingPage() {
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [formError, setFormError] = useState(deepLink.payment === 'cancelado'
     ? 'O pagamento foi cancelado e a marcação não foi feita. Pode escolher novamente o horário.' : '');
-  const [paidRef, setPaidRef] = useState(deepLink.payment === 'ok' ? deepLink.ref : '');
+  const [paidRef, setPaidRef] = useState(['ok', 'confirmado'].includes(deepLink.payment) ? deepLink.ref : '');
 
   // Back from Checkout without paying: release the held slot now, not when the hold lapses.
   useEffect(() => {
@@ -527,11 +527,18 @@ export default function BookingPage() {
         <div className="booking-container">
           <motion.div className="success-screen" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
             <div className="success-check" aria-hidden="true">✓</div>
-            <h2 className="success-title">Pedido Recebido</h2>
-            <p className="success-subtitle">
-              Assim que o pagamento for registado, receberá um email com os detalhes. A consulta fica
-              confirmada quando a nutricionista a aprovar; com cartão ou PayPal o valor só é cobrado nesse momento.
-            </p>
+            {deepLink.payment === 'confirmado' ? (<>
+              <h2 className="success-title">Pagamento Recebido</h2>
+              <p className="success-subtitle">
+                Assim que o pagamento for registado, a consulta fica confirmada e receberá um email com os detalhes.
+              </p>
+            </>) : (<>
+              <h2 className="success-title">Pedido Recebido</h2>
+              <p className="success-subtitle">
+                Assim que o pagamento for registado, receberá um email com os detalhes. A consulta fica
+                confirmada quando a nutricionista a aprovar; com cartão ou PayPal o valor só é cobrado nesse momento.
+              </p>
+            </>)}
             <div className="success-ref-box">
               <span className="success-ref-label">Referência da consulta</span>
               <span className="success-ref">{paidRef}</span>

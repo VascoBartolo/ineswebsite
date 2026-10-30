@@ -41,4 +41,5 @@ export const adminApi = {
   refundBooking: (ref, amount, notify = true) =>
     req(`/bookings/${ref}/refund`, { method: 'POST', body: JSON.stringify({ amount, notify }) }),
   deleteBooking: (ref) => req(`/bookings/${ref}`, { method: 'DELETE' }),
+  paymentLink: (ref) => req(`/bookings/${ref}/payment-link`),
 };

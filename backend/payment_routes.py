@@ -60,6 +60,15 @@ def _session_completed(session):
         return
     db.session.commit()
     logger.info("Payment %s for %s", booking.payment_status, booking.reference)
+    if booking.status == "confirmado":
+        # A payment link she sent: confirmed by the payment, nothing to approve.
+        try:
+            booking.google_event_id = calendar_service.update_event(booking.google_event_id, booking)
+            db.session.commit()
+        except Exception as e:
+            logger.error("Calendar event for paid link %s failed: %s", booking.reference, e)
+        email_service.send_booking_confirmed_client(booking)
+        return
     email_service.send_booking_received_client(booking)
     email_service.send_nutritionist_new_booking(booking)
 

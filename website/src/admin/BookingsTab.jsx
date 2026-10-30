@@ -135,6 +135,19 @@ export default function BookingsTab() {
     setPendingRefund,
   );
 
+  const copyLink = async (ref) => {
+    let url;
+    try {
+      ({ url } = await adminApi.paymentLink(ref));
+      await navigator.clipboard.writeText(url);
+      setToast({ message: `Link de pagamento de ${ref} copiado.`, tone: 'ok' });
+    } catch {
+      // Safari may refuse the clipboard after an await: let her copy it by hand.
+      if (url) window.prompt('Link de pagamento', url);
+      else setToast({ message: `Não foi possível obter o link de ${ref}.`, tone: 'err' });
+    }
+  };
+
   const remove = () => runAction(
     pendingDelete, adminApi.deleteBooking,
     `Marcação ${pendingDelete} eliminada.`,
@@ -192,6 +205,7 @@ export default function BookingsTab() {
                 <td data-label="Ações"><div className="acts">
                   <button type="button" className="ic" title="Editar" aria-label={`Editar ${b.reference}`} onClick={() => setEditing(b)}>✎</button>
                   {b.status !== 'cancelado' && <button type="button" className="ic" title="Cancelar" aria-label={`Cancelar ${b.reference}`} onClick={() => openCancel(b)}>⊘</button>}
+                  {b.status === 'aguarda_pagamento' && b.payment_status === 'pending' && <button type="button" className="ic" title="Copiar link de pagamento" aria-label={`Copiar link de pagamento ${b.reference}`} onClick={() => copyLink(b.reference)}>🔗</button>}
                   {b.refundable > 0 && <button type="button" className="ic" title="Reembolsar" aria-label={`Reembolsar ${b.reference}`} onClick={() => openRefund(b)}>↩</button>}
                   <button type="button" className="ic" title="Eliminar" aria-label={`Eliminar ${b.reference}`} onClick={() => setPendingDelete(b.reference)}>🗑</button>
                 </div></td>
@@ -219,6 +233,7 @@ export default function BookingsTab() {
         <EditBookingModal
           booking={editing} locations={locations}
           onClose={() => setEditing(null)}
+          onRefund={() => { const b = editing; setEditing(null); openRefund(b); }}
           onSaved={() => {
             const ref = editing.reference;
             setEditing(null);
@@ -271,7 +286,7 @@ export default function BookingsTab() {
       {pendingRefund && (
         <ConfirmModal
           title="Reembolsar"
-          body={`Reembolso para ${pendingRefund.nome} (${pendingRefund.reference}), para o meio de pagamento utilizado. Esta ação não pode ser revertida.`}
+          body={`Reembolso para ${pendingRefund.nome} (${pendingRefund.reference}), para o meio de pagamento utilizado.${pendingRefund.status !== 'cancelado' ? ' A marcação será cancelada.' : ''} Esta ação não pode ser revertida.`}
           confirmLabel="Reembolsar" cancelLabel="Voltar" danger busy={busyAction}
           onConfirm={issueRefund}
           onCancel={() => setPendingRefund(null)}

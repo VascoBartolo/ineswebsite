@@ -242,6 +242,26 @@ def send_booking_confirmed_client(booking):
     _send(booking.email, f"Consulta Confirmada — {booking.reference}", html)
 
 
+def send_payment_link_client(booking, url):
+    """A booking the nutritionist created, confirmed once the client pays."""
+    html = _base_style() + f"""
+    <h2 style="font-family:Georgia,serif;font-weight:400;color:#2C1A1A;">Pagamento da Consulta</h2>
+    <p>Olá <strong>{escape(booking.nome)}</strong>,</p>
+    <p>A sua consulta está reservada. Fica confirmada assim que o pagamento for efetuado.</p>
+    {_booking_detail_block(booking)}
+    <p style="text-align:center;margin:24px 0;">
+      <a href="{escape(url)}" style="background:#B94448;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Pagar consulta</a></p>
+    {_note(f"<strong>Prazo:</strong> o link é válido até {_fmt_deadline(booking.hold_expires_at)}. "
+           "Se o pagamento não for efetuado até lá, a marcação é cancelada e o horário libertado.")}
+    {_cancel_note(booking)}
+    <p>Se houver alguma questão por favor contactar {escape(REPLY_TO)}.</p>
+    <p>Com os melhores cumprimentos,<br><strong>Inês Bandarra</strong><br>
+       <span style="color:#7A5050;font-size:0.85rem;">Nutricionista Materno-Infantil &amp; Pediátrica</span></p>
+    </div>
+    """
+    _send(booking.email, f"Pagamento da Consulta — {booking.reference}", html)
+
+
 def send_booking_review_client(booking):
     """Sent when the nutritionist flags that her availability changed and the
     requested slot needs to be revised. She will follow up with the client."""
