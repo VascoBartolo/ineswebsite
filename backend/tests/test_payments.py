@@ -344,6 +344,23 @@ def test_admin_partial_refunds_accumulate_and_cap(client, app, fake_stripe):
     assert [r["amount"] for r in fake_stripe["refunds"]] == [2000, 3000]
 
 
+def test_admin_refund_cancels_booking_with_one_email(client, app, monkeypatch, fake_stripe):
+    deleted = []
+    monkeypatch.setattr(app_module.calendar_service, "delete_event", deleted.append)
+    with app.app_context():
+        _paid_booking(status="confirmado", google_event_id="evt-1")
+    _auth(client)
+    url = "/api/admin/bookings/IB-TEST0001/refund"
+    client.post(url, json={"amount": 20})
+    client.post(url, json={})
+    with app.app_context():
+        b = Booking.query.one()
+        assert (b.status, b.google_event_id) == ("cancelado", None)
+        assert app_module.db_busy_intervals(b.slot_date) == []
+    assert deleted == ["evt-1"]
+    assert [e[0] for e in fake_stripe["emails"]] == ["send_booking_cancelled_client", "send_refund_client"]
+
+
 def test_admin_cancel_refund_optional(client, app, fake_stripe):
     with app.app_context():
         _paid_booking()
@@ -374,3 +391,68 @@ def test_purge_keeps_paid_bookings(client, app, fake_stripe):
     client.get("/api/admin/bookings")
     with app.app_context():
         assert [b.reference for b in Booking.query.all()] == ["IB-TEST0001"]
+
+
+# ---- admin payment link ----
+
+def _link(client, **over):
+    _auth(client)
+    body = dict(nome="Cliente", email="c@teste.pt", contacto="912345678", idade="30",
+                sujeito="adulto", tipo_consulta="Seguimento", regime="online",
+                slot_date=(date.today() + timedelta(days=10)).isoformat(), slot_time="10:00",
+                duration_minutes=60, price=50, payment_link=True)
+    body.update(over)
+    return client.post("/api/admin/bookings", json=body)
+
+
+def test_admin_link_holds_slot_and_charges_at_once(client, app, monkeypatch, fake_stripe):
+    sent = []
+    monkeypatch.setattr(email_service, "send_payment_link_client", lambda b, url: sent.append(url))
+    r = _link(client, notify=True)
+    assert r.status_code == 201, r.get_json()
+    assert r.get_json()["payment_url"] == "https://checkout.stripe.com/x"
+    assert sent == ["https://checkout.stripe.com/x"]
+    kw = fake_stripe["sessions"][0]
+    assert "payment_method_options" not in kw and "cancel_url" not in kw
+    assert kw["metadata"] == {"admin_link": "1"}
+    assert kw["consent_collection"] == {"terms_of_service": "required"}
+    assert "24 horas" in kw["custom_text"]["submit"]["message"]
+    with app.app_context():
+        b = Booking.query.one()
+        assert (b.status, b.payment_status, b.google_event_id) == ("aguarda_pagamento", "pending", None)
+        assert timedelta(hours=23) < b.hold_expires_at - utcnow() <= timedelta(hours=24)
+        assert len(app_module.db_busy_intervals(b.slot_date)) == 1
+
+
+def test_admin_link_rejects_presencial(client, fake_stripe):
+    assert _link(client, regime="presencial", local_consulta="Clínica").status_code == 400
+    assert fake_stripe["sessions"] == []
+
+
+def test_paid_admin_link_confirms_without_approval(client, app, monkeypatch, fake_stripe):
+    monkeypatch.setattr(app_module.calendar_service, "update_event", lambda eid, b: "evt-1")
+    fake_stripe["pi"].update(status="succeeded", amount_received=5000)
+    ref = _link(client).get_json()["booking"]["reference"]
+    with app.app_context():
+        sid = Booking.query.one().stripe_session_id
+    _event(monkeypatch, "checkout.session.completed",
+           NS(id=sid, payment_intent="pi_1", metadata=NS(admin_link="1"),
+              consent=NS(terms_of_service="accepted")))
+    client.post("/api/stripe/webhook", data=b"{}")
+    with app.app_context():
+        b = Booking.query.one()
+        assert (b.status, b.payment_status, b.google_event_id) == ("confirmado", "paid", "evt-1")
+        assert b.capture_before is None and b.terms_version is not None
+    assert fake_stripe["emails"] == [("send_booking_confirmed_client", ref)]
+
+
+def test_admin_cancel_closes_unpaid_link(client, app, monkeypatch, fake_stripe):
+    expired = []
+    monkeypatch.setattr(payments.stripe.checkout.Session, "expire", lambda sid: expired.append(sid))
+    ref = _link(client).get_json()["booking"]["reference"]
+    client.post(f"/api/admin/bookings/{ref}/cancel", json={"notify": False})
+    assert expired == ["cs_1"]
+    with app.app_context():
+        b = Booking.query.one()
+        assert b.status == "cancelado"
+        assert app_module.db_busy_intervals(b.slot_date) == []

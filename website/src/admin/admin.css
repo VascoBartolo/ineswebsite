@@ -247,6 +247,16 @@
 /* Narrower dialog for a confirmation, which has no form grid to fill. */
 .modal.modal-sm { max-width: 420px; }
 .modal-check { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--dark); margin: 4px 0 0; cursor: pointer; }
+/* A choice with an explanation, drawn as a card so it reads as an option, not fine print. */
+.modal-option {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 12px; margin: 16px 0 4px; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+  font-size: .85rem; color: var(--dark); transition: border-color .15s, background .15s;
+}
+.modal-option.on { border-color: var(--red); background: #FDF7F7; }
+.modal-option input { grid-row: span 2; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--red); }
+.modal-option strong { font-weight: 600; }
+.modal-option .sub { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; line-height: 1.4; }
 
 /* ---------- Toast ---------- */
 /* Fixed to the viewport so it is visible wherever the table is scrolled. */
