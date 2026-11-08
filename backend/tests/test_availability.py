@@ -23,7 +23,7 @@ def test_weekday_window_unchanged():
     """Mon-Fri runs 16:30-20:30."""
     assert calendar_service.get_available_slots(MONDAY, 60, []) == [
         "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00", "18:15",
-        "18:30", "18:45", "19:00", "19:15", "19:30",
+        "18:30", "18:45", "19:00",
     ]
 
 
@@ -53,7 +53,7 @@ def test_follow_up_fits_right_after_a_first_session():
     }]
     slots = calendar_service.get_available_slots(MONDAY, 45, events, ("online", None))
     assert slots[0] == "17:00"
-    assert slots[-1] == "19:45"
+    assert slots[-1] == "19:00"
 
 
 def test_session_durations():
@@ -95,7 +95,7 @@ def test_bessa_weekdays_unchanged():
     """Mon-Fri at Flávia Bessa keeps the normal 16:30-20:30 window."""
     assert calendar_service.get_available_slots(MONDAY, 60, [], ("presencial", BESSA)) == [
         "16:30", "16:45", "17:00", "17:15", "17:30", "17:45", "18:00", "18:15",
-        "18:30", "18:45", "19:00", "19:15", "19:30",
+        "18:30", "18:45", "19:00",
     ]
 
 
@@ -148,7 +148,7 @@ def test_month_availability_zero_for_bessa_saturdays(client):
     assert all(days[d] == 0 for d in saturdays)
 
     mondays = [d for d in days if date.fromisoformat(d).weekday() == 0]
-    assert all(days[d] == 13 for d in mondays)
+    assert all(days[d] == 11 for d in mondays)
 
 
 def test_month_availability_counts(client):
@@ -165,7 +165,7 @@ def test_month_availability_counts(client):
 
     assert days[sat] == 12
     assert days[sun] == 0
-    assert days[mon] == 13
+    assert days[mon] == 11
 
 
 def test_month_availability_marks_past_days_zero(client):

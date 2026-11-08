@@ -24,6 +24,8 @@ WORK_WINDOWS = {
     6: [],
 }
 SLOT_INTERVAL_MINUTES = 15
+# No client booking starts after this, whatever its duration.
+LATEST_START = time(19, 0)
 TRAVEL_BUFFER = timedelta(minutes=30)
 
 
@@ -237,7 +239,7 @@ def get_available_slots(query_date, duration_minutes, all_events, new_location=N
         window_end = datetime.combine(query_date, win_end)
         current = datetime.combine(query_date, win_start)
         while current + timedelta(minutes=duration_minutes) <= window_end:
-            if current >= min_start:
+            if current >= min_start and current.time() <= LATEST_START:
                 candidates.append(current)
             current += timedelta(minutes=SLOT_INTERVAL_MINUTES)
 
