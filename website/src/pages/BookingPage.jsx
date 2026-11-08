@@ -826,8 +826,8 @@ export default function BookingPage() {
                       <h2 className="form-step-title" ref={stepTitleRef} tabIndex={-1}>Data & Hora</h2>
                       <p className="form-step-sub">
                         {NO_SATURDAY_CLINICS.includes(form.localConsulta)
-                          ? 'Seg–Sex 16h30–20h30 · encerrado ao sábado'
-                          : 'Seg–Sex 16h30–20h30 · Sáb 09h00–12h00 e 13h00–14h30'}
+                          ? 'Seg–Sex 16h30–20h00 · encerrado ao sábado'
+                          : 'Seg–Sex 16h30–20h00 · Sáb 09h00–12h00 e 13h00–14h30'}
                       </p>
                       <TimezoneNote dateStr={form.slotDate} />
 
