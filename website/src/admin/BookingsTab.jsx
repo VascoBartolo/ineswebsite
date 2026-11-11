@@ -23,12 +23,16 @@ function payLine(b) {
   if (['pendente', 'revisao'].includes(b.status) && b.capture_before) s += ` · confirmar até ${fmtDeadline(b.capture_before)}`;
   return s;
 }
+function payBadge(b) {
+  if (b.regime !== 'online') return <span className="pill pres">Pagamento presencial</span>;
+  return b.paid_in_full ? <span className="pill ok">Pago</span> : <span className="pill pend">Por pagar</span>;
+}
 function fmtDur(min) { const h = Math.floor(min / 60), m = min % 60; return h && m ? `${h}h${m}` : h ? `${h}h` : `${m}m`; }
 
 const EMPTY_RESULT = { bookings: [], summary: {}, pagination: { total: 0, pages: 1, per_page: 30 } };
 
 export default function BookingsTab() {
-  const [filters, setFilters] = useState({ q: '', status: 'all', regime: 'all', local_consulta: '', date_from: '', date_to: '' });
+  const [filters, setFilters] = useState({ q: '', status: 'all', regime: 'all', payment: 'all', local_consulta: '', date_from: '', date_to: '' });
   const [searchQ, setSearchQ] = useState('');
   const [page, setPage] = useState(1);
   const [locations, setLocations] = useState([]);
@@ -168,6 +172,10 @@ export default function BookingsTab() {
           <select id="bk-regime" value={filters.regime} onChange={set('regime')}>
             <option value="all">Todos</option><option value="presencial">Presencial</option><option value="online">Online</option>
           </select></div>
+        <div className="fld"><label htmlFor="bk-payment">Pagamento</label>
+          <select id="bk-payment" value={filters.payment} onChange={set('payment')}>
+            <option value="all">Todos</option><option value="pago">Pago</option><option value="por_pagar">Por pagar</option>
+          </select></div>
         <div className="fld"><label htmlFor="bk-local">Local</label>
           <select id="bk-local" value={filters.local_consulta} onChange={set('local_consulta')}>
             <option value="">Todos</option>{locations.map((l) => <option key={l} value={l}>{l}</option>)}
@@ -200,7 +208,7 @@ export default function BookingsTab() {
                 <td data-label="Cliente">{b.nome}<div className="sub">{b.email} · {b.contacto}</div></td>
                 <td data-label="Consulta">{b.tipo_consulta}<div className="sub">{b.sujeito} · {b.idade}</div></td>
                 <td data-label="Regime"><span className={`pill ${b.regime === 'online' ? 'onl' : 'pres'}`}>{REGIME_LABEL[b.regime] || b.regime}</span>{b.local_consulta && <div className="sub">{b.local_consulta}</div>}</td>
-                <td data-label="Preço">{Number(b.price).toFixed(0)}€{b.payment_status && <div className="sub">{payLine(b)}</div>}</td>
+                <td data-label="Preço">{Number(b.price).toFixed(0)}€<div>{payBadge(b)}</div>{b.payment_status && <div className="sub">{payLine(b)}</div>}</td>
                 <td data-label="Estado"><span className={`pill ${STATUS_CLS[b.status] || 'ok'}`}>{STATUS_LABEL[b.status] || b.status}</span></td>
                 <td data-label="Ações"><div className="acts">
                   <button type="button" className="ic" title="Editar" aria-label={`Editar ${b.reference}`} onClick={() => setEditing(b)}>✎</button>

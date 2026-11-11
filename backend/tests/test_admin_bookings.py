@@ -151,3 +151,25 @@ def test_unconfirmed_bookings_purged_after_12_months(client, app):
     with app.app_context():
         left = {b.reference for b in Booking.query.all()}
     assert left == {"IB-OLDCONF", "IB-NEWCANC"}
+
+
+def test_paid_in_full_and_payment_filter(client, app):
+    with app.app_context():
+        make_booking(reference="IB-STRIPE", payment_status="paid", amount_paid=50)
+        make_booking(reference="IB-MANUAL", paid_manually=True)
+        make_booking(reference="IB-REFUND", payment_status="refunded", amount_paid=50, amount_refunded=50)
+        make_booking(reference="IB-LEGACY")
+        make_booking(reference="IB-PRES", regime="presencial", local_consulta="X")
+    _auth(client)
+
+    body = client.get("/api/admin/bookings").get_json()["bookings"]
+    assert {b["reference"]: b["paid_in_full"] for b in body} == {
+        "IB-STRIPE": True, "IB-MANUAL": True, "IB-REFUND": False, "IB-LEGACY": False, "IB-PRES": None,
+    }
+
+    def refs(payment):
+        r = client.get(f"/api/admin/bookings?payment={payment}")
+        return {b["reference"] for b in r.get_json()["bookings"]}
+
+    assert refs("pago") == {"IB-STRIPE", "IB-MANUAL"}
+    assert refs("por_pagar") == {"IB-REFUND", "IB-LEGACY"}
