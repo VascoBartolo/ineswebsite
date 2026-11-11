@@ -53,7 +53,7 @@ function saveErrorMessage(body) {
 const EMPTY = {
   nome: '', email: '', contacto: '', idade: '', sujeito: '', tipo_consulta: '',
   slot_date: '', slot_time: '', price: '', regime: 'presencial',
-  duration_minutes: 60, local_consulta: '', status: 'confirmado', is_first: '',
+  duration_minutes: 60, local_consulta: '', status: 'confirmado', is_first: '', paid_manually: false,
 };
 
 // Same rule as the public form and compute_price: online is always 50€; presencial
@@ -117,6 +117,7 @@ export default function EditBookingModal({ booking, create = false, locations = 
       duration_minutes: Number(form.duration_minutes),
       // '' means "not recorded" and must stay null, not collapse to false.
       is_first: form.is_first === '' ? null : form.is_first === 'true',
+      paid_manually: !!form.paid_manually,
       notify,
       payment_link: withLink,
     };
@@ -196,6 +197,17 @@ export default function EditBookingModal({ booking, create = false, locations = 
             <input id="em-paylink" type="checkbox" checked={payLink} onChange={(e) => setPayLink(e.target.checked)} disabled={busy || !!linkUrl} />
             <strong>Criar link de pagamento</strong>
             <span className="sub">A consulta só fica confirmada após o pagamento. Se não for paga em 24h, é cancelada e o horário libertado.</span>
+          </label>
+        )}
+        {form.regime !== 'online' ? (
+          <p className="modal-note">Pagamento presencial (não registado na app).</p>
+        ) : booking?.payment_status === 'paid' ? (
+          <p className="modal-note"><strong>Pago via Stripe.</strong></p>
+        ) : !withLink && (
+          <label htmlFor="em-paid" className={`modal-option${form.paid_manually ? ' on' : ''}`}>
+            <input id="em-paid" type="checkbox" checked={!!form.paid_manually} onChange={(e) => setForm((f) => ({ ...f, paid_manually: e.target.checked }))} disabled={busy} />
+            <strong>Pago (fora da app)</strong>
+            <span className="sub">Marque se o cliente já pagou por outra via, por exemplo antes dos pagamentos online.</span>
           </label>
         )}
         {booking?.payment_status === 'authorized' && (

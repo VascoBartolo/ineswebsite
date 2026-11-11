@@ -70,6 +70,8 @@ class Booking(db.Model):
     # Deadline for the nutritionist to confirm: when a card/PayPal hold lapses,
     # or our own deadline for MB WAY, which is charged at once.
     capture_before = db.Column(db.DateTime)
+    # Online booking paid outside Stripe (e.g. before Checkout existed), marked by the admin.
+    paid_manually = db.Column(db.Boolean)
 
     def to_dict(self):
         return {

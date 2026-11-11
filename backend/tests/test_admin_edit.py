@@ -56,3 +56,27 @@ def test_edit_leaves_is_first_alone_when_absent(client, app, monkeypatch):
     _auth(client)
     r = client.put("/api/admin/bookings/IB-F2", json={"nome": "Outro Nome"})
     assert r.get_json()["booking"]["is_first"] is True
+
+
+def test_edit_marks_online_booking_paid_manually(client, app, monkeypatch):
+    monkeypatch.setattr(admin_routes.calendar_service, "update_event", lambda eid, b: eid or "e")
+    monkeypatch.setattr(admin_routes.email_service, "send_booking_updated_client", lambda b: None)
+    with app.app_context():
+        make_booking(reference="IB-P1")
+        make_booking(reference="IB-P2", regime="presencial", local_consulta="X")
+    _auth(client)
+
+    body = client.get("/api/admin/bookings").get_json()["bookings"]
+    assert {b["reference"]: b["paid_in_full"] for b in body} == {"IB-P1": False, "IB-P2": None}
+
+    r = client.put("/api/admin/bookings/IB-P1", json={"paid_manually": True, "notify": False})
+    assert r.status_code == 200
+    assert r.get_json()["booking"]["paid_manually"] is True
+    assert r.get_json()["booking"]["paid_in_full"] is True
+
+    # Presencial payments are not tracked.
+    r = client.put("/api/admin/bookings/IB-P2", json={"paid_manually": True, "notify": False})
+    assert r.get_json()["booking"]["paid_manually"] is None
+
+    r = client.put("/api/admin/bookings/IB-P1", json={"paid_manually": "yes"})
+    assert r.status_code == 400

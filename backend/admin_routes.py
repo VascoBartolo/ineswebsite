@@ -87,7 +87,19 @@ def _booking_admin_dict(b):
     d["refundable"] = float(payments.refundable(b))
     d["terms_accepted_at"] = b.terms_accepted_at.isoformat() if b.terms_accepted_at else None
     d["terms_version"] = b.terms_version
+    d["paid_manually"] = b.paid_manually
+    # Presencial payments are not tracked by the app, so they have no answer here.
+    d["paid_in_full"] = bool(b.paid_manually or (
+        b.payment_status == "paid" and b.amount_paid is not None and b.amount_paid >= b.price
+    )) if (b.regime or "").lower() == "online" else None
     return d
+
+
+# SQL twin of paid_in_full above, for the table's payment filter.
+PAID_IN_FULL = db.or_(
+    Booking.paid_manually.is_(True),
+    db.and_(Booking.payment_status == "paid", Booking.amount_paid >= Booking.price),
+)
 
 
 def _sync_calendar(booking):
@@ -117,6 +129,7 @@ def _purge_expired_bookings():
         Booking.status != "confirmado", Booking.slot_date < cutoff,
         # Money moved: a fiscal record, kept 10 years (Privacy Policy §5).
         Booking.amount_paid.is_(None),
+        Booking.paid_manually.isnot(True),
     ).delete(synchronize_session=False)
     db.session.commit()
 
@@ -129,6 +142,7 @@ def list_bookings():
     q = Booking.query
     status = request.args.get("status", "all")
     regime = request.args.get("regime", "all")
+    payment = request.args.get("payment", "all")
     local = request.args.get("local_consulta", "").strip()
     sujeito = request.args.get("sujeito", "").strip()
     date_from = date_arg("date_from")
@@ -139,6 +153,10 @@ def list_bookings():
         q = q.filter(Booking.status == status)
     if regime in ("presencial", "online"):
         q = q.filter(db.func.lower(Booking.regime) == regime)
+    if payment in ("pago", "por_pagar"):
+        q = q.filter(db.func.lower(Booking.regime) == "online")
+        # coalesce: NULL payment columns mean unpaid, not unknown.
+        q = q.filter(PAID_IN_FULL if payment == "pago" else db.not_(db.func.coalesce(PAID_IN_FULL, False)))
     if local:
         q = q.filter(Booking.local_consulta == local)
     if sujeito:
@@ -313,6 +331,10 @@ def _clean_fields(data):
         out["slot_date"] = parse_date(present["slot_date"])
     if present.get("slot_time"):
         out["slot_time"] = parse_time(present["slot_time"])
+    if "paid_manually" in present:
+        if not isinstance(present["paid_manually"], bool):
+            raise BadInput("invalid_field", "paid_manually")
+        out["paid_manually"] = present["paid_manually"]
     return out
 
 
@@ -375,6 +397,7 @@ def create_booking_admin():
         price=fields["price"],
         is_first=_parse_is_first(data.get("is_first")),
         status=fields["status"],
+        paid_manually=fields.get("paid_manually") if fields["regime"].lower() == "online" else None,
     )
     if payment_link:
         try:
@@ -444,6 +467,8 @@ def edit_booking(reference):
         booking.is_first = _parse_is_first(data["is_first"])
     if booking.regime and booking.regime.lower() == "online":
         booking.local_consulta = None
+    else:
+        booking.paid_manually = None
 
     db.session.commit()
 
